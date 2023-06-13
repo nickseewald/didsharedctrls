@@ -1,5 +1,62 @@
 library(MASS)
 
+#' Title
+#'
+#' @param c1 
+#' @param c2 
+#' @param rho 
+#' @param phi_t 
+#' @param phi_s 
+#' @param error_sd 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi_t, phi_s, error_sd) {
+  if (is.null(c1) & is.null(c2)) {
+    d <- data.frame("state" = NA)
+  } else {
+    d <- data.frame("state" = union(c1$cohort$state, c2$cohort$state))
+  }  
+  d <- manage_cor_input(d, rho, "rho") |> 
+    manage_cor_input(phi_t, "phi_t") |> 
+    manage_cor_input(phi_s, "phi_s") |> 
+    manage_cor_input(error_sd, "error_sd") |> 
+    transform(
+      "s2_id" = error_sd^2 * (rho - phi_s) / (1 - rho - phi_t + phi_s),
+      "s2_time" = error_sd^2 * (phi_t - phi_s) / (1 - rho - phi_t + phi_s),
+      "s2_state" = error_sd^2 * phi_s / (1 - rho - phi_t + phi_s)
+    ) |> 
+    transform(
+      "outcome_var" = s2_id + s2_time + s2_state + error_sd^2
+    )
+  
+  if (any(d[, c("s2_id", "s2_time", "s2_state")] < 0)) {
+    dvec <- as.vector(d)
+    str1 <- ifelse(any(dvec$s2_id < 0), 
+                   paste("s2_id:", 
+                         paste(dvec$state[dvec$s2_id < 0], collapse = ", "),
+                         "\n"),
+                   "")
+    str2 <- ifelse(any(dvec$s2_time < 0), 
+                   paste("s2_time:", 
+                         paste(dvec$state[dvec$s2_time < 0], collapse = ", "),
+                         "\n"),
+                   "")
+    str3 <- ifelse(any(dvec$s2_state < 0), 
+                   paste("s2_state:", 
+                         paste(dvec$state[dvec$s2_state < 0], collapse = ", "),
+                         "\n"),
+                   "")
+    stop(paste("Choices of rho, phi_t, and phi_s yield negative random",
+               "intercept variances: ", str1, str2, str3))
+  }
+  
+  d
+}
+
+
 #' Construct Correlation Matrix
 #'
 #' @param rho Correlation parameter
@@ -63,6 +120,25 @@ expand_vec <- function(vec, len) {
     vec <- rep(vec, len)
   checkmate::assert_vector(vec, len = len)
   vec
+}
+
+manage_cor_input <- function(d, r, rname) {
+  if (length(r) == 1) {
+    d[[rname]] <- r
+  } else if (length(r) != 1 & length(r) == nrow(d)) {
+    if (is.null(names(r))) {
+      d[[rname]] <- r
+    } else if (length(setdiff(names(r), d$state)) == 0) {
+      d[[rname]] <- r[match(names(r), d$state)]
+    } else {
+      stop(paste0("Names of ', ", rname, "' do not match generated state names.",
+                  "Names must be", paste(d$state, collapse = ", ")))
+    }
+  } else {
+    stop(paste0("'", rname, "' must be either length 1 or length ", nrow(d),
+                " (the number of unique states)."))
+  }
+  d
 }
 
 #' Compute Durations of Time Overlap Intervals
@@ -158,10 +234,11 @@ time_windows <- function(c1Times, c2Times, c1tStar, c2tStar) {
   checkmate::assert_subset(c2tStar, c2Times, empty.ok = FALSE, add = checks)
   checkmate::reportAssertions(checks)
   list(
-    pre_dot   = c1Times[c1Times < min(c2Times)],
+    pre_dot   = c1Times[c1Times < min(c2Times) & c1Times < c1tStar],
     pre_pre   = c1Times[c1Times >= min(c2Times) & c1Times < c1tStar],
     post_dot  = c1Times[c1Times >= c1tStar & c1Times < min(c2Times)],
-    post_pre  = c1Times[c1Times >= c1tStar & c1Times < min(c2tStar, max(c1Times))],
+    post_pre  = c1Times[c1Times >= c1tStar & c1Times >= min(c2Times) & 
+                          c1Times < min(c2tStar) & c1Times <= max(c1Times)],
     post_post = c1Times[c1Times >= c1tStar & c1Times >= c2tStar],
     dot_pre   = c2Times[c2Times > max(c1Times) & c2Times < c2tStar],
     dot_post  = c2Times[c2Times > max(c1Times) & c2Times >= c2tStar]

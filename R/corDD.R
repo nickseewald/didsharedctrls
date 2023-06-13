@@ -71,8 +71,8 @@ corDD <- function(Ntx_cohort1, Ntx_cohort2, Ndisj_cohort1, Ndisj_cohort2,
   
   covDD(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
          rho[-1], phi_t[-1], phi_s[-1], sigma_s[-(1:2)]) / 
-    sqrt(var_DD(Ntx_cohort1, nctrl = Ndisj_cohort1 + Nshared, Tpre, Tpost, 
+    sqrt(varDD(Ntx_cohort1, nctrl = Ndisj_cohort1 + Nshared, Tpre, Tpost, 
                 rho, phi_t, phi_s, sigma_s[-2]) *
-           var_DD(Ntx_cohort2, nctrl = Ndisj_cohort2 + Nshared, Tpre, Tpost,
+           varDD(Ntx_cohort2, nctrl = Ndisj_cohort2 + Nshared, Tpre, Tpost,
                   rho, phi_t, phi_s, sigma_s[-1]))
 }
