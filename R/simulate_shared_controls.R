@@ -19,12 +19,12 @@
 #'   assumed constant across all states; else, a vector of length 2 +
 #'   nctrlstates in the order (cohort 1 treated, cohort 2 treated,
 #'   control states).
-#' @param phi_t Within-period correlation, i.e., correlation between two
+#' @param phi Within-period correlation, i.e., correlation between two
 #'   observations from different people in the same state at the same time. If a
 #'   single number, assumed constant across all states; else, a vector of length
 #'   2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
 #'   control states).
-#' @param phi_s Within-state correlation, i.e., correlation between two
+#' @param psi Within-state correlation, i.e., correlation between two
 #'   observations from different people in the same state at different times. If
 #'   a single number, assumed constant across all states; else, a vector of
 #'   length 2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
@@ -52,8 +52,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      nperstate_cohort2 = nperstate_cohort1,
                                      nshared,
                                      rho = rep(0, 2 + nctrlstates),
-                                     phi_t = rep(0, 2 + nctrlstates), ## CHECK LENGTH
-                                     phi_s = rep(0, 2 + nctrlstates), ## CHECK LENGTH
+                                     phi = rep(0, 2 + nctrlstates), ## CHECK LENGTH
+                                     psi = rep(0, 2 + nctrlstates), ## CHECK LENGTH
                                      tx_intshift_cohort1,
                                      tx_intshift_cohort2 = tx_intshift_cohort1,
                                      secular_trend = function(x) 0,
@@ -62,13 +62,13 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      verbose = FALSE) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_numeric(rho, add = checks)
-  checkmate::assert_numeric(phi_t, add = checks)
-  checkmate::assert_numeric(phi_s, add = checks)
+  checkmate::assert_numeric(phi, add = checks)
+  checkmate::assert_numeric(psi, add = checks)
   checkmate::reportAssertions(checks)
   
   rho <- expand_vec(rho, 2 + nctrlstates)
-  phi_t <- expand_vec(phi_t, 2 + nctrlstates)
-  phi_s <- expand_vec(phi_s, 2 + nctrlstates)
+  phi <- expand_vec(phi, 2 + nctrlstates)
+  psi <- expand_vec(psi, 2 + nctrlstates)
   error_sd <- expand_vec(error_sd, 2 + nctrlstates)
 
   
@@ -148,8 +148,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                      formatC(1:nctrlstates, width = nchar(nctrlstates),
                              flag = "0")))
 
-  c1$cohort <- c1$cohort[order(c1$cohort$state, c1$cohort$id, c1$cohort$time), ]
-  c2$cohort <- c2$cohort[order(c2$cohort$state, c2$cohort$id, c2$cohort$time), ]
+  # c1$cohort <- c1$cohort[order(c1$cohort$state, c1$cohort$id, c1$cohort$time), ]
+  # c2$cohort <- c2$cohort[order(c2$cohort$state, c2$cohort$id, c2$cohort$time), ]
 
   c1$cohort <- transform(c1$cohort, 
                          "Ymean" = state_fe_mean + secular_trend(time) + 
@@ -298,8 +298,11 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   # effects): this is a T-by-T matrix (T = Tpre + Tpost) where the (t,s) element
   # is the correlation between the random effect at time t and the random effect
   # of time s. It's a multiplier on the within-period ICC.
-  sigma2_ST <- (phi_t / (1 - phi_t)) * error_sd^2
-  r <- phi_s / phi_t
+  r <- psi / phi
+  
+  # Compute random-effect variances required to achieve specified corr structure
+  sigma2_ST <- psi / (r * (1 - rho - psi) - psi) * error_sd^2
+  sigma2_ID <- r * (rho - psi) / (r * (1 - rho - psi) - psi) * error_sd^2
   
   fullTimes <- unique(c(c1$cohort$time, c2$cohort$time))
   
@@ -320,7 +323,7 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                 }))
   
   raneff <- data.frame("id" = unique(c(c1$cohort$id, c2$cohort$id)))
-  raneff$raneff_id <- rnorm(nrow(raneff))
+  raneff$raneff_id <- rnorm(nrow(raneff), mean = 0, sd = sqrt(sigma2_ID))
   
   # merge state-time random effects into cohort data.frames
   c1$cohort <- merge(c1$cohort, CP, by = c("state", "time"), all.x = T) |> 
@@ -331,12 +334,15 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   c1$cohort$Y <- with(c1$cohort, 
                       Ymean + raneff_statetime + raneff_id +
                         rnorm(nrow(c1$cohort), mean = 0, sd = error_sd))
+  c2$cohort$Y <- with(c2$cohort, 
+                      Ymean + raneff_statetime + raneff_id +
+                        rnorm(nrow(c1$cohort), mean = 0, sd = error_sd))
+  
   c1$cohort$ftime <- factor(c1$cohort$time)
   c1$cohort$stime <- paste0(c1$cohort$state, c1$cohort$time)
   
-  mod1 <- lme4::lmer(Y ~ ftime + treated + (1 | stime), data = c1$cohort)
-  mod2 <- lme4::lmer(Y ~ ftime + treated + (1 | stime) + (1 | id), data = c1$cohort)
-  
+  # mod1 <- lme4::lmer(Y ~ ftime + treated + (1 | stime), data = c1$cohort)
+  # mod2 <- lme4::lmer(Y ~ ftime + treated + (1 | stime) + (1 | id), data = c1$cohort)
   
   c1c2t <- time_windows(unique(c1$cohort$time), unique(c2$cohort$time),
                         c1tStar = c1$tStar, c2tStar = c2$tStar)
@@ -439,8 +445,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             nctrl = nperstate_cohort1[-1],
             Tpre = Tpre, Tpost = Tpost,
             rho = with(state_varcors, rho[state != "tx02"]), 
-            phi_t = with(state_varcors, phi_t[state != "tx02"]),
-            phi_s = with(state_varcors, phi_s[state != "tx02"]),
+            phi_t = with(state_varcors, phi[state != "tx02"]),
+            phi_s = with(state_varcors, psi[state != "tx02"]),
             sigma_s = with(state_varcors, 
                            sqrt(outcome_var[state != "tx02"])))),
     "c2_analytic" = sqrt(
@@ -448,8 +454,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             nctrl = nperstate_cohort2[-1],
             Tpre = Tpre, Tpost = Tpost,
             rho = with(state_varcors, rho[state != "tx01"]), 
-            phi_t = with(state_varcors, phi_t[state != "tx01"]),
-            phi_s = with(state_varcors, phi_s[state != "tx01"]),
+            phi_t = with(state_varcors, phi[state != "tx01"]),
+            phi_s = with(state_varcors, psi[state != "tx01"]),
             sigma_s = with(state_varcors, 
                            sqrt(outcome_var[state != "tx01"]))))
   )
