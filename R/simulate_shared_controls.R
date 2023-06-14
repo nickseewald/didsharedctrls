@@ -297,8 +297,9 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   # Start by parametrizing R matrix (correlation btwn state-time random
   # effects): this is a T-by-T matrix (T = Tpre + Tpost) where the (t,s) element
   # is the correlation between the random effect at time t and the random effect
-  # of time s. It's a multiplier on the within-period ICC.
-  r <- psi / phi
+  # of time s. It's a multiplier on the within-period ICC. Note that the
+  # ifelse() call prevents issues when phi = psi = 0.
+  r <- ifelse(psi == phi, 1, psi / phi)
   
   # Compute random-effect variances required to achieve specified corr structure
   sigma2_ST <- psi / (r * (1 - rho - psi) - psi) * error_sd^2
