@@ -69,8 +69,8 @@ build_varcor_matrix2 <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) 
     manage_cor_input(error_sd, "error_sd") |> 
     transform("r" = ifelse(psi == phi, 1, psi / phi)) |>
     transform(
-      "s2_id" = error_sd^2 * r * (rho - psi) / (r * (1 - rho - psi) - psi),
-      "s2_sttime" = error_sd^2 * psi / (r * (1 - rho - psi) - psi)
+      "s2_id" = error_sd^2 * (phi - psi) / ((1 - rho) - (phi - psi)),
+      "s2_sttime" = error_sd^2 * phi / ((1 - rho) - (phi - psi))
     ) |> 
     transform(
       "outcome_var" = s2_id + s2_sttime + error_sd^2
