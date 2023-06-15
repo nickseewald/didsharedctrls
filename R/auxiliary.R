@@ -13,20 +13,20 @@ library(MASS)
 #' @export
 #'
 #' @examples
-build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi_t, phi_s, error_sd) {
+build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
   if (is.null(c1) & is.null(c2)) {
     d <- data.frame("state" = NA)
   } else {
     d <- data.frame("state" = union(c1$cohort$state, c2$cohort$state))
   }  
   d <- manage_cor_input(d, rho, "rho") |> 
-    manage_cor_input(phi_t, "phi_t") |> 
-    manage_cor_input(phi_s, "phi_s") |> 
+    manage_cor_input(phi, "phi") |> 
+    manage_cor_input(psi, "psi") |> 
     manage_cor_input(error_sd, "error_sd") |> 
     transform(
-      "s2_id" = error_sd^2 * (rho - phi_s) / (1 - rho - phi_t + phi_s),
-      "s2_time" = error_sd^2 * (phi_t - phi_s) / (1 - rho - phi_t + phi_s),
-      "s2_state" = error_sd^2 * phi_s / (1 - rho - phi_t + phi_s)
+      "s2_id" = error_sd^2 * (rho - psi) / (1 - rho - phi + psi),
+      "s2_time" = error_sd^2 * (phi - psi) / (1 - rho - phi + psi),
+      "s2_state" = error_sd^2 * psi / (1 - rho - phi + psi)
     ) |> 
     transform(
       "outcome_var" = s2_id + s2_time + s2_state + error_sd^2
@@ -49,7 +49,46 @@ build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi_t, phi_s, error_s
                          paste(dvec$state[dvec$s2_state < 0], collapse = ", "),
                          "\n"),
                    "")
-    stop(paste("Choices of rho, phi_t, and phi_s yield negative random",
+    stop(paste("Choices of rho, phi, and psi yield negative random",
+               "intercept variances: ", str1, str2, str3))
+  }
+  
+  d
+}
+
+build_varcor_matrix2 <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
+  if (is.null(c1) & is.null(c2)) {
+    d <- data.frame("state" = NA)
+  } else {
+    d <- data.frame("state" = union(c1$cohort$state, c2$cohort$state))
+  }  
+  
+  d <- manage_cor_input(d, rho, "rho") |> 
+    manage_cor_input(phi, "phi") |> 
+    manage_cor_input(psi, "psi") |> 
+    manage_cor_input(error_sd, "error_sd") |> 
+    transform("r" = ifelse(psi == phi, 1, psi / phi)) |>
+    transform(
+      "s2_id" = error_sd^2 * r * (rho - psi) / (r * (1 - rho - psi) - psi),
+      "s2_sttime" = error_sd^2 * psi / (r * (1 - rho - psi) - psi)
+    ) |> 
+    transform(
+      "outcome_var" = s2_id + s2_sttime + error_sd^2
+    )
+  
+  if (any(d[, c("s2_id", "s2_sttime")] < 0)) {
+    dvec <- as.vector(d)
+    str1 <- ifelse(any(dvec$s2_id < 0), 
+                   paste("s2_id:", 
+                         paste(dvec$state[dvec$s2_id < 0], collapse = ", "),
+                         "\n"),
+                   "")
+    str2 <- ifelse(any(dvec$s2_sttime < 0), 
+                   paste("s2_sttime:", 
+                         paste(dvec$state[dvec$s2_sttime < 0], collapse = ", "),
+                         "\n"),
+                   "")
+    stop(paste("Choices of rho, phi, and psi yield negative random",
                "intercept variances: ", str1, str2, str3))
   }
   
