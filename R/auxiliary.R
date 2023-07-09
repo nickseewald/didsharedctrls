@@ -56,7 +56,20 @@ build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
   d
 }
 
-build_varcor_matrix2 <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
+#' Compute 
+#'
+#' @param c1 
+#' @param c2 
+#' @param rho 
+#' @param phi 
+#' @param psi 
+#' @param error_sd 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
   if (is.null(c1) & is.null(c2)) {
     d <- data.frame("state" = NA)
   } else {
@@ -89,7 +102,7 @@ build_varcor_matrix2 <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) 
                          "\n"),
                    "")
     stop(paste("Choices of rho, phi, and psi yield negative random",
-               "intercept variances: ", str1, str2, str3))
+               "intercept variances: ", str1, str2))
   }
   
   d

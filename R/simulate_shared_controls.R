@@ -59,7 +59,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      secular_trend = function(x) 0,
                                      state_fe_mean = 0,
                                      error_sd = rep(1, 2 + nctrlstates),
-                                     verbose = FALSE) {
+                                     verbose = FALSE,
+                                     ARdecay = 1) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_numeric(rho, add = checks)
   checkmate::assert_numeric(phi, add = checks)
@@ -219,9 +220,9 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   # }
   
   #### RANDOM EFFECTS VERSION 1
-  # # Build matrix of variances for random effects
-  # state_varcors <- build_varcor_matrix(c1, c2, rho, phi_t, phi_s, error_sd)
-  #
+  # Build matrix of variances for random effects
+  # state_varcors <- build_varcor_matrix(c1, c2, rho, phi, psi, error_sd)
+  # 
   # # Generate ID-specific random effects
   # random_id_effect <- subset(rbind(c1$cohort, c2$cohort),
   #                            select = c("id", "state"))
@@ -300,60 +301,73 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   # of time s. It's a multiplier on the within-period ICC. Note that the
   # ifelse() call prevents issues when phi = psi = 0.
   # r <- ifelse(psi == phi, 1, psi / phi)
-  # 
-  # # Compute random-effect variances required to achieve specified corr structure
-  # sigma2_ST <- psi / (r * (1 - rho - psi) - psi) * error_sd^2
-  # sigma2_ID <- r * (rho - psi) / (r * (1 - rho - psi) - psi) * error_sd^2
-  
-  state_varcors <- didstackcor:::build_varcor_matrix2(c1, c2, rho, phi, psi, error_sd)
-  
-  fullTimes <- unique(c(c1$cohort$time, c2$cohort$time))
-  
+
+  state_varcors <- compute_raneff_vars(rho, phi, psi, error_sd, c1, c2)
+
+  fullTimes <- seq(min(c1$cohort$time), max(c2$cohort$time))
+
   R <- structure(
     lapply(state_varcors$r, \(x) {
       temp <- matrix(x, nrow = length(fullTimes), ncol = length(fullTimes))
       diag(temp) <- 1
-      temp
+      if (ARdecay != 1) {
+        decay <- matrix(nrow = length(fullTimes), ncol = length(fullTimes))
+        for (i in 1:length(fullTimes)) {
+          for (j in 1:length(fullTimes)) {
+            decay[i, j] <- ARdecay^abs(i - j)
+          }
+        }
+        return(temp * decay)
+      } else return(temp)
     }),
     names = states)
-  
-  CP <- do.call(rbind, 
+
+  CP <- do.call(rbind,
                 lapply(1:length(R), \(i) {
                   CPu <- MASS::mvrnorm(n = 1, mu = rep(0, nrow(R[[i]])),
                                        Sigma = state_varcors$s2_sttime[i] * R[[i]])
-                  data.frame("state" = states[i], "time" = fullTimes, 
+                  data.frame("state" = states[i], "time" = fullTimes,
                              "raneff_statetime" = CPu)
                 }))
-  
+
   raneff <- merge(c1$cohort[, c("id", "state")], c2$cohort[, c("id", "state")], all = T)
   raneff <- raneff[!duplicated(raneff), ]
   raneff <- do.call(rbind, lapply(split.data.frame(raneff, raneff$state), \(x) {
     x$raneff_id <- rnorm(nrow(x), mean = 0,
-                      sd = sqrt(state_varcors$s2_id[state_varcors$state == 
+                      sd = sqrt(state_varcors$s2_id[state_varcors$state ==
                                                       unique(x$state)]))
     x
   }))
   
+  outcome_error <-
+    expand.grid(id = union(c1$cohort$id, c2$cohort$id),
+                time = union(c1$cohort$time, c2$cohort$time))
+
+  outcome_error$error <- rnorm(n = nrow(outcome_error),
+                               mean = 0, sd = error_sd)
+
   # merge state-time random effects into cohort data.frames
-  c1$cohort <- merge(c1$cohort, CP, by = c("state", "time"), all.x = T) |> 
+  c1$cohort <- merge(c1$cohort, CP, by = c("state", "time"), all.x = T) |>
     merge(raneff, by = c("state", "id"), all.x = T)
-  c2$cohort <- merge(c2$cohort, CP, by = c("state", "time"), all.x = T)|> 
+  c2$cohort <- merge(c2$cohort, CP, by = c("state", "time"), all.x = T)|>
     merge(raneff, by = c("state", "id"), all.x = T)
   
+  c1$cohort <- merge(c1$cohort, outcome_error, all.x = T, by = c("id", "time"))
+  c2$cohort <- merge(c2$cohort, outcome_error, all.x = T, by = c("id", "time"))
+
   # Add random effects and noise to Ymean
-  c1$cohort$Y <- with(c1$cohort, 
-                      Ymean + raneff_statetime + raneff_id +
-                        rnorm(nrow(c1$cohort), mean = 0, sd = error_sd))
-  c2$cohort$Y <- with(c2$cohort, 
-                      Ymean + raneff_statetime + raneff_id +
-                        rnorm(nrow(c2$cohort), mean = 0, sd = error_sd))
-  
-  c1$cohort$ftime <- factor(c1$cohort$time)
-  c1$cohort$stime <- paste0(c1$cohort$state, c1$cohort$time)
-  
+  c1$cohort$Y <- with(c1$cohort,
+                      Ymean + raneff_statetime + raneff_id + error)
+  c2$cohort$Y <- with(c2$cohort,
+                      Ymean + raneff_statetime + raneff_id + error)
+
+  # c1$cohort$ftime <- factor(c1$cohort$time)
+  # c1$cohort$stime <- paste0(c1$cohort$state, c1$cohort$time)
+  #
   # mod1 <- lme4::lmer(Y ~ ftime + treated + (1 | stime), data = c1$cohort)
   # mod2 <- lme4::lmer(Y ~ ftime + treated + (1 | stime) + (1 | id), data = c1$cohort)
-  
+  # mod3 <- lme4::lmer(Y ~ treated + (1 | ftime) + (1 | stime) + (1 | id), data = c1$cohort)
+
   c1c2t <- time_windows(unique(c1$cohort$time), unique(c2$cohort$time),
                         c1tStar = c1$tStar, c2tStar = c2$tStar)
   periods <- do.call(rbind, c1c2t)

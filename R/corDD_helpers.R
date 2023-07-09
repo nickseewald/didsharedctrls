@@ -84,7 +84,7 @@ varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi_t, phi_s, sigma_s) {
 #'   estimates.
 #' 
 covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
-                   rho, phi_t, phi_s, sigma_s) {
+                   rho, phi, psi, sigma_s) {
   
   # Function is not exported, so will assume all input is well-formed
   
@@ -95,10 +95,10 @@ covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
   timeFactor <- (Tpre * Tpost) ^ (-2) *
     (Tpre ^ 2 * max(Tpost - Delta, 0) +
        Tpost ^ 2 * max(Tpre - Delta, 0) -
-       Tpre * Tpost * min(c(Tpre, Tpost, Delta, Tpre + Tpost - Delta))) 
+       Tpre * Tpost * min(c(Tpre, Tpost, Delta, max(Tpre + Tpost - Delta, 0))))
   
-  s <- (Ncohort1 * Ncohort2 * (phi_t - phi_s) + 
-          Nshared * (1 - rho - (phi_t - phi_s))) * sigma_s^2
+  s <- (Ncohort1 * Ncohort2 * (phi - psi) + 
+          Nshared * (1 - rho - (phi - psi))) * sigma_s^2
   
   timeFactor * sum(s) / (sum(Ncohort1) * sum(Ncohort2))
 }
