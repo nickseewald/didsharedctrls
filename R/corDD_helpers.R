@@ -97,10 +97,13 @@ covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
        Tpost ^ 2 * max(Tpre - Delta, 0) -
        Tpre * Tpost * min(c(Tpre, Tpost, Delta, max(Tpre + Tpost - Delta, 0))))
   
-  s <- (Ncohort1 * Ncohort2 * (phi - psi) + 
+  s <- ((Ncohort1 * (phi - psi)) * Ncohort2 + 
           Nshared * (1 - rho - (phi - psi))) * sigma_s^2
   
-  timeFactor * sum(s) / (sum(Ncohort1) * sum(Ncohort2))
+  # s <- (Ncohort1 * Ncohort2 * (phi - psi) + 
+  #         Nshared * (1 - rho - (phi - psi))) * sigma_s^2
+  
+  timeFactor * (sum(s) / sum(Ncohort1)) / sum(Ncohort2)
 }
 
 #' Compute Variance of Mean Outcome in Treated State in either Pre or

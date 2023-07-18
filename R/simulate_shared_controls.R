@@ -311,10 +311,10 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
       temp <- matrix(x, nrow = length(fullTimes), ncol = length(fullTimes))
       diag(temp) <- 1
       if (ARdecay != 1) {
-        decay <- matrix(nrow = length(fullTimes), ncol = length(fullTimes))
+        decay <- matrix(1, nrow = length(fullTimes), ncol = length(fullTimes))
         for (i in 1:length(fullTimes)) {
-          for (j in 1:length(fullTimes)) {
-            decay[i, j] <- ARdecay^abs(i - j)
+          for (j in 1:i) {
+            decay[i, j] <- decay[j, i] <- ARdecay^(abs(i - j))
           }
         }
         return(temp * decay)
@@ -504,18 +504,18 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
     "analytic_se" = 1 / sqrt(with(did_ses, 
                                   c1_analytic^(-2) + c2_analytic^(-2)))
     ) |>
-    transform("naive_lb" = naive_est - 1.96 * naive_se,
-              "naive_ub" = naive_est + 1.96 * naive_se,
-              "idadj_lb" = idadj_est - 1.96 * idadj_se,
-              "idadj_ub" = idadj_est + 1.96 * idadj_se,
-              "stadj_lb" = stadj_est - 1.96 * stadj_se,
-              "stadj_ub" = stadj_est + 1.96 * stadj_se,
-              "analytic_lb" = analytic_est - 1.96 * analytic_se,
-              "analytic_ub" = analytic_est + 1.96 * analytic_se) |> 
+    transform("naive_lb" = naive_est - qnorm(.975) * naive_se,
+              "naive_ub" = naive_est + qnorm(.975) * naive_se,
+              "idadj_lb" = idadj_est - qnorm(.975) * idadj_se,
+              "idadj_ub" = idadj_est + qnorm(.975) * idadj_se,
+              "stadj_lb" = stadj_est - qnorm(.975) * stadj_se,
+              "stadj_ub" = stadj_est + qnorm(.975) * stadj_se,
+              "analytic_lb" = analytic_est - qnorm(.975) * analytic_se,
+              "analytic_ub" = analytic_est + qnorm(.975) * analytic_se) |> 
     transform("naive_coverage" = truth >= naive_lb & truth <= naive_ub,
               "idadj_coverage" = truth >= idadj_lb & truth <= idadj_ub,
               "stadj_coverage" = truth >= stadj_lb & truth <= stadj_ub,
-              "analytic_coverage" = truth >= analytic_lb & truth <= analytic_ub) 
+              "analytic_coverage" = truth >= analytic_lb & truth <= analytic_ub)
   
   return(list("component_sums"  = component_sums,
               "component_sums_old" = component_sums_old,

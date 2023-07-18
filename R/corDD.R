@@ -54,7 +54,7 @@
 #'
 #' @examples
 corDD <- function(Ntx_cohort1, Ntx_cohort2, Ndisj_cohort1, Ndisj_cohort2,
-                   Nshared, Tpre, Tpost, Delta, rho, phi_t, phi_s, sigma_s) {
+                   Nshared, Tpre, Tpost, Delta, rho, phi, psi, outcomeSD) {
   # Check inputs
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_vector(Ndisj_cohort1, add = checks)
@@ -62,17 +62,17 @@ corDD <- function(Ntx_cohort1, Ntx_cohort2, Ndisj_cohort1, Ndisj_cohort2,
   checkmate::assert_vector(Ndisj_cohort2, len = nctrlstates, add = checks)
   checkmate::assert_vector(Nshared,       len = nctrlstates, add = checks)
   
-  rho     <- expand_vec(rho, nctrlstates + 1)
-  phi_t   <- expand_vec(phi_t, nctrlstates + 1)
-  phi_s   <- expand_vec(phi_s, nctrlstates + 1)
-  sigma_s <- expand_vec(sigma_s, nctrlstates + 2)
+  rho <- expand_vec(rho, nctrlstates + 1)
+  phi <- expand_vec(phi, nctrlstates + 1)
+  psi <- expand_vec(psi, nctrlstates + 1)
+  outcomeSD <- expand_vec(outcomeSD, nctrlstates + 2)
   
   checkmate::reportAssertions(checks)
   
   covDD(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
-         rho[-1], phi_t[-1], phi_s[-1], sigma_s[-(1:2)]) / 
+         rho[-1], phi[-1], psi[-1], outcomeSD[-(1:2)]) / 
     sqrt(varDD(Ntx_cohort1, nctrl = Ndisj_cohort1 + Nshared, Tpre, Tpost, 
-                rho, phi_t, phi_s, sigma_s[-2]) *
+                rho, phi, psi, outcomeSD[-2]) *
            varDD(Ntx_cohort2, nctrl = Ndisj_cohort2 + Nshared, Tpre, Tpost,
-                  rho, phi_t, phi_s, sigma_s[-1]))
+                  rho, phi, psi, outcomeSD[-1]))
 }

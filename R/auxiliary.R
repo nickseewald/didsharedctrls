@@ -68,7 +68,7 @@ build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
 #' @return
 #' @export
 #'
-#' @examples
+#' @exampless
 compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
   if (is.null(c1) & is.null(c2)) {
     d <- data.frame("state" = NA)
@@ -172,6 +172,15 @@ expand_vec <- function(vec, len) {
     vec <- rep(vec, len)
   checkmate::assert_vector(vec, len = len)
   vec
+}
+
+coverage_check <- function(est, se, df, param_value, conf.level = .95) {
+  # Recycle param_value if needed
+  param_value <- rep_len(param_value, length.out = length(est))
+  tfactor <- qt(c((1 - conf.level) / 2, (1 + conf.level) / 2), df = df)
+  ci <- est + se %o% tfactor
+  sapply(1:length(param_value), \(i) param_value[i] > min(ci[i, ]) & 
+           param_value[i] < max(ci[i, ]))
 }
 
 manage_cor_input <- function(d, r, rname) {
