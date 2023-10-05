@@ -13,15 +13,15 @@ simulate_shared_controls(
   nperstate_cohort2 = nperstate_cohort1,
   nshared,
   rho = rep(0, 2 + nctrlstates),
-  phi_t = rep(0, 2 + nctrlstates),
-  phi_s = rep(0, 2 + nctrlstates),
+  phi = rep(0, 2 + nctrlstates),
+  psi = rep(0, 2 + nctrlstates),
   tx_intshift_cohort1,
   tx_intshift_cohort2 = tx_intshift_cohort1,
-  secular_cohort1 = function(x) 0,
-  secular_cohort2 = secular_cohort1,
+  secular_trend = function(x) 0,
   state_fe_mean = 0,
   error_sd = rep(1, 2 + nctrlstates),
-  verbose = FALSE
+  verbose = FALSE,
+  ARdecay = 1
 )
 }
 \arguments{
@@ -46,17 +46,20 @@ above.}
 
 \item{rho}{Exchangeable within-person correlation. If a single number,
 assumed constant across all states; else, a vector of length 2 +
-nctrlstates.}
+nctrlstates in the order (cohort 1 treated, cohort 2 treated,
+control states).}
 
-\item{phi_t}{Within-period correlation, i.e., correlation between two
+\item{phi}{Within-period correlation, i.e., correlation between two
 observations from different people in the same state at the same time. If a
 single number, assumed constant across all states; else, a vector of length
-2 + nctrlstates.}
+2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
+control states).}
 
-\item{phi_s}{Within-state correlation, i.e., correlation between two
+\item{psi}{Within-state correlation, i.e., correlation between two
 observations from different people in the same state at different times. If
 a single number, assumed constant across all states; else, a vector of
-length 2 + nctrlstates.}
+length 2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
+control states).}
 
 \item{tx_intshift_cohort1}{Numeric. Intercept shift at time of treatment
 \eqn{t^*} for the treated state in cohort 1.}
@@ -64,18 +67,18 @@ length 2 + nctrlstates.}
 \item{tx_intshift_cohort2}{Numeric. Intercept shift at time of treatment
 \eqn{t^*} for the treated state in cohort 2.}
 
-\item{secular_cohort1}{Function of one argument defining a secular time trend
-common to all states in cohort 1. Defaults to 0.}
-
-\item{secular_cohort2}{Function of one argument defining a secular time trend
-common to all states in cohort 2. Defaults to 0.}
-
 \item{state_fe_mean}{Mean of state fixed effects. See Details.}
 
 \item{error_sd}{Standard deviation of additive error in data generative
 model. See Details.}
 
 \item{verbose}{Logical. Should additional messages be printed?}
+
+\item{secular_cohort1}{Function of one argument defining a secular time trend
+common to all states in cohort 1. Defaults to 0.}
+
+\item{secular_cohort2}{Function of one argument defining a secular time trend
+common to all states in cohort 2. Defaults to 0.}
 }
 \description{
 Simulate Stacked DiD Cohorts with Shared Control Individuals

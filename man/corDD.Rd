@@ -15,9 +15,9 @@ corDD(
   Tpost,
   Delta,
   rho,
-  phi_t,
-  phi_s,
-  sigma_s
+  phi,
+  psi,
+  outcomeSD
 )
 }
 \arguments{

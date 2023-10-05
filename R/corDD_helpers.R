@@ -28,32 +28,32 @@
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param rho Vector of within-person correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
-#' @param phi_t Vector of within-period correlations for each state in the
+#' @param phi Vector of within-period correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
-#' @param phi_s Vector of within-state correlations for each state in the
+#' @param psi Vector of within-state correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
 #' @param sigma_s Vector of standard deviations of the outcome for each state in
 #'   the analysis. First element is assumed to be for the treated state in
 #'   cohort 1; second element the treated state in cohort 2.
 #'
 #' @return A scalar
-varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi_t, phi_s, sigma_s) {
+varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi, psi, sigma_s) {
   
   checkmate::assert_vector(nctrl)
 
   nctrlstates <- length(nctrl)
   
   rho     <- expand_vec(rho, nctrlstates + 1)
-  phi_t   <- expand_vec(phi_t, nctrlstates + 1)
-  phi_s   <- expand_vec(phi_s, nctrlstates + 1)
+  phi     <- expand_vec(phi, nctrlstates + 1)
+  psi     <- expand_vec(psi, nctrlstates + 1)
   sigma_s <- expand_vec(sigma_s, nctrlstates + 1)
   
-  var_tx_period(ntx, Tpre, rho[1], phi_t[1], phi_s[1], sigma_s[1]) +
-    var_tx_period(ntx, Tpost, rho[1], phi_t[1], phi_s[1], sigma_s[1]) +
-    var_ctrl_period(nctrl, Tpre, rho[-1], phi_t[-1], phi_s[-1], sigma_s[-1]) +
-    var_ctrl_period(nctrl, Tpost, rho[-1], phi_t[-1], phi_s[-1], sigma_s[-1]) -
-    2 * var_cov_tx_pre_post(ntx, Tpre, Tpost, rho[1], phi_s[1], sigma_s[1]) - 
-    2 * var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho[-1], phi_s[-1], sigma_s[-1])
+  var_tx_period(ntx, Tpre, rho[1], phi[1], psi[1], sigma_s[1]) +
+    var_tx_period(ntx, Tpost, rho[1], phi[1], psi[1], sigma_s[1]) +
+    var_ctrl_period(nctrl, Tpre, rho[-1], phi[-1], psi[-1], sigma_s[-1]) +
+    var_ctrl_period(nctrl, Tpost, rho[-1], phi[-1], psi[-1], sigma_s[-1]) -
+    2 * var_cov_tx_pre_post(ntx, Tpre, Tpost, rho[1], psi[1], sigma_s[1]) - 
+    2 * var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho[-1], psi[-1], sigma_s[-1])
 }
 
 
@@ -72,9 +72,9 @@ varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi_t, phi_s, sigma_s) {
 #' @param Delta Number of measurement occasions between cohort treatment times
 #' @param rho Vector of within-person correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
-#' @param phi_t Vector of within-period correlations for each state in the
+#' @param phi Vector of within-period correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
-#' @param phi_s Vector of within-state correlations for each state in the
+#' @param psi Vector of within-state correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
 #' @param sigma_s Vector of standard deviations of the outcome for each state in
 #'   the analysis. First element is assumed to be for the treated state in
@@ -112,15 +112,15 @@ covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
 #' @param ntx Number of individuals in the treated unit
 #' @param nTimes Number of measurement occasions in the period (pre or post tx)
 #' @param rho Within-person correlation
-#' @param phi_t Within-period correlation
-#' @param phi_s Between-period correlation
+#' @param phi Within-period correlation
+#' @param psi Between-period correlation
 #' @param sigma_tx Variance of outcome in treated unit
 #'
 #' @return A scalar
-var_tx_period <- function(ntx, nTimes, rho, phi_t, phi_s, sigma_tx) {
+var_tx_period <- function(ntx, nTimes, rho, phi, psi, sigma_tx) {
   (ntx * nTimes)^(-2) * (
     ntx * nTimes * (1 + (nTimes - 1) * rho) +
-      ntx * (ntx - 1) * nTimes * (phi_t + (nTimes - 1) * phi_s)
+      ntx * (ntx - 1) * nTimes * (phi + (nTimes - 1) * psi)
   ) * sigma_tx^2
 }
 
@@ -130,24 +130,24 @@ var_tx_period <- function(ntx, nTimes, rho, phi_t, phi_s, sigma_tx) {
 #' @param nctrl Vector of numbers of individuals in each control state
 #' @param nTimes Number of measurement occasions in the period (pre or post tx)
 #' @param rho Vector of within-person correlations for each control state
-#' @param phi_t Vector of within-period correlations for each control state
-#' @param phi_s Vector of between-period correlations for each control state
+#' @param phi Vector of within-period correlations for each control state
+#' @param psi Vector of between-period correlations for each control state
 #' @param sigma_s Vector of outcome variances in each control state
 #' 
 #' @return
-var_ctrl_period <- function(nctrl, nTimes, rho, phi_t, phi_s, sigma_s) {
+var_ctrl_period <- function(nctrl, nTimes, rho, phi, psi, sigma_s) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_vector(nctrl, add = checks)
   checkmate::assert_vector(rho,     len = length(nctrl), add = checks)
-  checkmate::assert_vector(phi_t,   len = length(nctrl), add = checks)
-  checkmate::assert_vector(phi_s,   len = length(nctrl), add = checks)
+  checkmate::assert_vector(phi,     len = length(nctrl), add = checks)
+  checkmate::assert_vector(psi,     len = length(nctrl), add = checks)
   checkmate::assert_vector(sigma_s, len = length(nctrl), add = checks)
   checkmate::reportAssertions(checks)
   
   sum(sapply(1:length(nctrl), \(i) {
     (nctrl[i] * (nTimes + nTimes * (nTimes - 1) * rho[i]) + 
        nctrl[i] * (nctrl[i] - 1) * 
-       (nTimes * phi_t[i] + nTimes * (nTimes - 1) * phi_s[i])) * sigma_s[i]^2
+       (nTimes * phi[i] + nTimes * (nTimes - 1) * psi[i])) * sigma_s[i]^2
   })) / (sum(nctrl)^2 * nTimes^2)
 }
 
@@ -157,12 +157,12 @@ var_ctrl_period <- function(nctrl, nTimes, rho, phi_t, phi_s, sigma_s) {
 #' @param Tpre Number of measurement occasions in the pre-treatment period
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param rho Within-person correlation
-#' @param phi_s Between-period correlation
+#' @param psi Between-period correlation
 #' @param sigma_tx Variance of outcome in treated unit
 #'
 #' @return A scalar
-var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, phi_s, sigma_tx) {
-  (ntx * Tpre * Tpost * rho + ntx * (ntx - 1) * Tpre * Tpost * phi_s) *
+var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, psi, sigma_tx) {
+  (ntx * Tpre * Tpost * rho + ntx * (ntx - 1) * Tpre * Tpost * psi) *
     sigma_tx^2 / (ntx^2 * Tpre * Tpost)
 }
 
@@ -173,20 +173,20 @@ var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, phi_s, sigma_tx) {
 #' @param Tpre Number of measurement occasions in the pre-treatment period
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param rho Vector of within-person correlations for each control state
-#' @param phi_s Vector of between-period correlations for each control state
+#' @param psi Vector of between-period correlations for each control state
 #' @param sigma_s Vector of outcome variances in each control state
 #'
 #' @return
-var_cov_ctrl_pre_post <- function(nctrl, Tpre, Tpost, rho, phi_s, sigma_s) {
+var_cov_ctrl_pre_post <- function(nctrl, Tpre, Tpost, rho, psi, sigma_s) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_vector(nctrl, add = checks)
   checkmate::assert_vector(rho,     len = length(nctrl), add = checks)
-  checkmate::assert_vector(phi_s,   len = length(nctrl), add = checks)
+  checkmate::assert_vector(psi,     len = length(nctrl), add = checks)
   checkmate::assert_vector(sigma_s, len = length(nctrl), add = checks)
   checkmate::reportAssertions(checks)
   
   sum(sapply(1:length(nctrl), \(i) {
     (nctrl[i] * Tpre * Tpost * rho[i] + 
-       nctrl[i] * (nctrl[i] - 1) * Tpre * Tpost * phi_s[i]) * sigma_s[i]^2
+       nctrl[i] * (nctrl[i] - 1) * Tpre * Tpost * psi[i]) * sigma_s[i]^2
   })) / (sum(nctrl)^2 * Tpre * Tpost)
 }

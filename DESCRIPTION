@@ -13,5 +13,5 @@ Description: A (one paragraph) description of what
 License: GPL (>= 2)
 URL: https://www.r-project.org, http://www.another.url
 BugReports: https://pkgname.bugtracker.url
-RoxygenNote: 7.2.0
+RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)
