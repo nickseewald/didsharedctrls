@@ -6,7 +6,7 @@
 #' @param Tpre Number of measurement occasions in the pre-treatment period
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param Delta Number of measurement occasions between cohort study period
-#'   start times 
+#'   start times
 #' @param nctrlstates Number of control states in each cohort
 #' @param nperstate_cohort1 Number of individuals in each state in cohort 1.
 #'   Optionally, a vector of length 2 + nctrlstates that specifies different
@@ -17,13 +17,13 @@
 #' @param nshared Number of shared control individuals
 #' @param rho Exchangeable within-person correlation. If a single number,
 #'   assumed constant across all states; else, a vector of length 2 +
-#'   nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-#'   control states).
+#'   nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+#'   states).
 #' @param phi Within-period correlation, i.e., correlation between two
 #'   observations from different people in the same state at the same time. If a
 #'   single number, assumed constant across all states; else, a vector of length
-#'   2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-#'   control states).
+#'   2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+#'   states).
 #' @param psi Within-state correlation, i.e., correlation between two
 #'   observations from different people in the same state at different times. If
 #'   a single number, assumed constant across all states; else, a vector of
@@ -41,6 +41,11 @@
 #' @param error_sd Standard deviation of additive error in data generative
 #'   model. See Details.
 #' @param verbose Logical. Should additional messages be printed?
+#'
+#' @details Generates and analyzes a `data.frame` for stacked
+#'   difference-in-differences analysis with shared control individuals. The
+#'   `data.frame` contains individual-level data from two treated states and
+#'   `nctrlstates` control states that are common to both treated states' analyses. 
 #'
 #' @return
 #' @export
@@ -160,147 +165,13 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                            tx_intshift_cohort2 * treated)
 
   c1$cohort$Y <- c2$cohort$Y <- NA
-  
-  # CORRELATION MATRIX VERSION
-  # for (s in states) {
-  #   ids_s <- union(unique(c1$cohort$id[c1$cohort$state == s]),
-  #                  unique(c2$cohort$id[c2$cohort$state == s]))
-  # 
-  #   times_s <- union(unique(c1$cohort$time[c1$cohort$state == s]),
-  #                    unique(c2$cohort$time[c2$cohort$state == s]))
-  # 
-  #   x <- paste(rep(ids_s, each = length(times_s)), times_s, sep = "_")
-  # 
-  #   sindex <- which(s == states)
-  # 
-  #   sigma <- do.call(cbind, lapply(1:length(ids_s), \(i) {
-  #     do.call(cbind, lapply(times_s, \(tp) {
-  #       idx <- which(tp == times_s)
-  #       rep(c(rep(phi_s[sindex], sum(times_s < tp)),
-  #             phi_t[sindex],
-  #             rep(phi_s[sindex], sum(times_s > tp))),
-  #           length(ids_s))
-  #     }))
-  #   }))
-  # 
-  #   within_person <- cormat(rho[sindex], p = length(times_s), corstr = "exch")
-  # 
-  #   for (i in 1:length(ids_s)) {
-  #     sigma[(length(times_s) * i - (length(times_s) - 1)):(length(times_s) * i),
-  #           (length(times_s) * i - (length(times_s) - 1)):(length(times_s) * i)] <- within_person
-  #   }
-  # 
-  #   rownames(sigma) <- colnames(sigma) <-
-  #     paste(rep(ids_s, each = length(times_s)), times_s, sep = "_")
-  # 
-  #   incl1 <- which(sapply(strsplit(rownames(sigma), "_"), \(x) {
-  #     (x[1] %in% unique(c1$cohort$id[c1$cohort$state == s])) &
-  #       (x[2] %in% unique(c1$cohort$time))
-  #   }))
-  #   incl2 <- which(sapply(strsplit(rownames(sigma), "_"),\(x) {
-  #     (x[1] %in% unique(c2$cohort$id[c2$cohort$state == s])) &
-  #       (x[2] %in% unique(c2$cohort$time))
-  #   }))
-  # 
-  #   if (length(incl1) != 0) {
-  #     c1$cohort$Y[c1$cohort$state == s] <-
-  #       with(subset(c1$cohort, state == s),
-  #            MASS::mvrnorm(n = 1,
-  #                          mu = Ymean,
-  #                          Sigma = sigma[incl1, incl1] * error_sd[sindex]^2))
-  #   }
-  # 
-  #   if (length(incl2) != 0) {
-  #     c2$cohort$Y[c2$cohort$state == s] <-
-  #       with(subset(c2$cohort, state == s),
-  #            MASS::mvrnorm(n = 1,
-  #                          mu = Ymean,
-  #                          Sigma = sigma[incl2, incl2] * error_sd[sindex]^2))
-  #   }
-  # }
-  
-  #### RANDOM EFFECTS VERSION 1
-  # Build matrix of variances for random effects
-  # state_varcors <- build_varcor_matrix(c1, c2, rho, phi, psi, error_sd)
-  # 
-  # # Generate ID-specific random effects
-  # random_id_effect <- subset(rbind(c1$cohort, c2$cohort),
-  #                            select = c("id", "state"))
-  # random_id_effect <- random_id_effect[!duplicated(random_id_effect), ]
-  # random_id_effect <-
-  #   do.call(rbind,
-  #           lapply(split.data.frame(random_id_effect, random_id_effect$state),
-  #                  \(x) {
-  #                    st <- as.character(unique(x$state))
-  #                    x$rdmint_id <- rnorm(nrow(x), mean = 0,
-  #                                         sd = with(state_varcors,
-  #                                                   sqrt(s2_id[state == st])))
-  #                    x
-  #                  }))
-  # 
-  # random_time_effect <- rbind(expand.grid("state" = unique(c1$cohort$state),
-  #                                         "time" = unique(c1$cohort$time)),
-  #                             expand.grid("state" = unique(c2$cohort$state),
-  #                                         "time" = unique(c2$cohort$time)))
-  # random_time_effect <- random_time_effect[!duplicated(random_time_effect), ]
-  # random_time_effect$rdmint_time <- sapply(1:nrow(random_time_effect), \(i) {
-  #   rnorm(n = 1, mean = secular_trend(random_time_effect$time[i]),
-  #         sd = sqrt(state_varcors$s2_time[state_varcors$state ==
-  #                                           random_time_effect$state[i]]))
-  # })
-  # 
-  # state_fes <- expand.grid("state" = union(c1$cohort$state, c2$cohort$state),
-  #                          # "cohort" = c(1, 2),
-  #                          stringsAsFactors = F)
-  # state_fes$state_eff <- MASS::mvrnorm(n = nrow(state_fes), mu = state_fe_mean,
-  #                                      Sigma = unique(state_varcors$s2_state),
-  #                                      empirical = T)
-  # 
-  # outcome_error <-
-  #   expand.grid(id = union(c1$cohort$id, c2$cohort$id),
-  #               time = union(c1$cohort$time, c2$cohort$time))
-  # 
-  # outcome_error$error <- rnorm(n = nrow(outcome_error),
-  #                              mean = 0, sd = error_sd)
-  # 
-  # # Merge ID-specific random effects and outcome error into cohorts
-  # c1$cohort <- merge(c1$cohort, random_id_effect, all.x = T)
-  # c2$cohort <- merge(c2$cohort, random_id_effect, all.x = T)
-  # c1$cohort <- merge(c1$cohort, random_time_effect, all.x = T)
-  # c2$cohort <- merge(c2$cohort, random_time_effect, all.x = T)
-  # c1$cohort <- merge(c1$cohort, state_fes, all.x = T)
-  # c2$cohort <- merge(c2$cohort, state_fes, all.x = T)
-  # 
-  # c1$cohort <- merge(c1$cohort, outcome_error, all.x = T, by = c("id", "time"))
-  # c2$cohort <- merge(c2$cohort, outcome_error, all.x = T, by = c("id", "time"))
-  # 
-  # # Merge in state fixed effects for early cohort (late cohort FEs depend on
-  # # early cohort!)
-  # c1$cohort$state_eff <- state_fes$state_eff[
-  #   match(c1$cohort$state, state_fes$state)]
-  # 
-  # # Merge in state fixed effects for late cohort (These values will change
-  # # depending on number of shared control individuals: shared folks will have a
-  # # different intercept than the state FE so their trajectories will stay the
-  # # same and not be cohort-dependent.)
-  # c2$cohort$state_eff <- state_fes$state_eff[
-  #   match(c2$cohort$state, state_fes$state)]
-  # 
-  # # Construct outcome variables in early cohort
-  # c1$cohort$Ymean <- with(c1$cohort, state_eff + tx_intshift_cohort1 * treated)
-  # c1$cohort$Y <- with(c1$cohort, Ymean + rdmint_id + rdmint_time + error)
-  # 
-  # c2$cohort$Ymean <- with(c2$cohort, state_eff + tx_intshift_cohort2 * treated)
-  # c2$cohort$Y <- with(c2$cohort, Ymean + rdmint_id + rdmint_time + error)
 
-  #### RANDOM EFFECTS VERSION 2 (Kasza et al. 2019)
+  #### RANDOM EFFECTS TO INDUCE CORRELATION (Kasza et al. 2019)
   
   # Start by parametrizing R matrix (correlation btwn state-time random
   # effects): this is a T-by-T matrix (T = Tpre + Tpost) where the (t,s) element
   # is the correlation between the random effect at time t and the random effect
-  # of time s. It's a multiplier on the within-period ICC. Note that the
-  # ifelse() call prevents issues when phi = psi = 0.
-  # r <- ifelse(psi == phi, 1, psi / phi)
+  # of time s. It's a multiplier on the within-period ICC. 
 
   state_varcors <- compute_raneff_vars(rho, phi, psi, error_sd, c1, c2)
 

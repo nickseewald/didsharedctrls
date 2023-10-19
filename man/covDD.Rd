@@ -38,15 +38,15 @@ states in cohort 2}
 \item{rho}{Vector of within-person correlations for each state in the
 analysis. First element is assumed to be for the treated state.}
 
+\item{phi}{Vector of within-period correlations for each state in the
+analysis. First element is assumed to be for the treated state.}
+
+\item{psi}{Vector of within-state correlations for each state in the
+analysis. First element is assumed to be for the treated state.}
+
 \item{sigma_s}{Vector of standard deviations of the outcome for each state in
 the analysis. First element is assumed to be for the treated state in
 cohort 1; second element the treated state in cohort 2.}
-
-\item{phi_t}{Vector of within-period correlations for each state in the
-analysis. First element is assumed to be for the treated state.}
-
-\item{phi_s}{Vector of within-state correlations for each state in the
-analysis. First element is assumed to be for the treated state.}
 }
 \value{
 A scalar estimate of the covariance between the two cohorts' effect

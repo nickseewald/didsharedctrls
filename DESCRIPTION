@@ -1,17 +1,18 @@
 Package: didstackcor
-Version: 0.1
-Date: 2022-11-07
+Version: 1.0
+Date: 2023-10-19
 Title: Shared Control Individuals in Stacked Difference-in-Differences
 Authors@R: c(person("Nicholas J. Seewald", "Developer", role = c("aut", "cre"),
-                     email = "nseewal1@jhu.edu"))
-Author: Joe Developer [aut, cre]
-Maintainer: Joe Developer <Joe.Developer@some.domain.net>
+                     email = "seewaldn@pennmedicine.upenn.edu"))
+Author: Nicholas J. Seewald [aut, cre]
+Maintainer: "Nicholas J. Seewald" <seewaldn@pennmedicine.upenn.edu>
 Depends: R (>= 4.2.0), nlme, zoo (>= 1.8-10)
 Suggests: MASS
 Description: A (one paragraph) description of what
   the package does and why it may be useful.
-License: GPL (>= 2)
-URL: https://www.r-project.org, http://www.another.url
+License: AGPL-3
+URL: https://www.nickseewald.com
 BugReports: https://pkgname.bugtracker.url
 RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)
+Encoding: UTF-8

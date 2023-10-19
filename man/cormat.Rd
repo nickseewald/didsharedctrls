@@ -9,13 +9,13 @@ cormat(rho, p, corstr = c("independence", "exchangeable", "ar1"))
 \arguments{
 \item{rho}{Correlation parameter}
 
-\item{p}{Dimension of desired matrix (will be \eqn(p \times p))}
+\item{p}{Dimension of desired matrix (will be \eqn{p * p})}
 
 \item{corstr}{Correlation structure; one of "independence", "exchangeable",
 or "ar1". Partial matching used.}
 }
 \value{
-A \eqn(p \times p) matrix of correlations.
+A \eqn{p * p} matrix of correlations.
 }
 \description{
 Construct Correlation Matrix

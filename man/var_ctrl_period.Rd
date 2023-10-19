@@ -2,10 +2,10 @@
 % Please edit documentation in R/corDD_helpers.R
 \name{var_ctrl_period}
 \alias{var_ctrl_period}
-\title{Compute Variance of Mean Outcome Averaged over Control States in either Pre
+\title{Compute Variance of Mean Outcome Averaged over Control States in either Pre-
 or Post-Treatment Period}
 \usage{
-var_ctrl_period(nctrl, nTimes, rho, phi_t, phi_s, sigma_s)
+var_ctrl_period(nctrl, nTimes, rho, phi, psi, sigma_s)
 }
 \arguments{
 \item{nctrl}{Vector of numbers of individuals in each control state}
@@ -14,13 +14,17 @@ var_ctrl_period(nctrl, nTimes, rho, phi_t, phi_s, sigma_s)
 
 \item{rho}{Vector of within-person correlations for each control state}
 
-\item{phi_t}{Vector of within-period correlations for each control state}
+\item{phi}{Vector of within-period correlations for each control state}
 
-\item{phi_s}{Vector of between-period correlations for each control state}
+\item{psi}{Vector of between-period correlations for each control state}
 
 \item{sigma_s}{Vector of outcome variances in each control state}
 }
+\value{
+A scalar, the variance of the mean outcome in control states over
+either the pre- or post-treatment period
+}
 \description{
-Compute Variance of Mean Outcome Averaged over Control States in either Pre
+Compute Variance of Mean Outcome Averaged over Control States in either Pre-
 or Post-Treatment Period
 }

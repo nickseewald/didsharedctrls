@@ -5,7 +5,7 @@
 \title{Compute Variance of Mean Outcome in Treated State in either Pre or
 Post-Treatment Period}
 \usage{
-var_tx_period(ntx, nTimes, rho, phi_t, phi_s, sigma_tx)
+var_tx_period(ntx, nTimes, rho, phi, psi, sigma_tx)
 }
 \arguments{
 \item{ntx}{Number of individuals in the treated unit}
@@ -14,9 +14,9 @@ var_tx_period(ntx, nTimes, rho, phi_t, phi_s, sigma_tx)
 
 \item{rho}{Within-person correlation}
 
-\item{phi_t}{Within-period correlation}
+\item{phi}{Within-period correlation}
 
-\item{phi_s}{Between-period correlation}
+\item{psi}{Between-period correlation}
 
 \item{sigma_tx}{Variance of outcome in treated unit}
 }

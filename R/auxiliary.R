@@ -56,19 +56,31 @@ build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
   d
 }
 
-#' Compute 
+#' Compute Variances of Random Effects for Simulating Shared Controls Data
 #'
-#' @param c1 
-#' @param c2 
-#' @param rho 
-#' @param phi 
-#' @param psi 
-#' @param error_sd 
+#'
+#' @param rho Exchangeable within-person correlation. If a single number,
+#'   assumed constant across all states; else, a vector of length 2 + the number
+#'   of control states, given in the order (cohort 1 treated, cohort 2 treated,
+#'   control states).
+#' @param phi Within-period correlation, i.e., correlation between two
+#'   observations from different people in the same state at the same time. If a
+#'   single number, assumed constant across all states; else, a vector of length
+#'   2 + the number of control states, given in the order (cohort 1 treated,
+#'   cohort 2 treated, control states).
+#' @param psi Within-state correlation, i.e., correlation between two
+#'   observations from different people in the same state at different times. If
+#'   a single number, assumed constant across all states; else, a vector of
+#'   length 2 + the number of control states, given in the order (cohort 1
+#'   treated, cohort 2 treated, control states).
+#' @param error_sd Standard deviation of additive error in data generative
+#'   model. See Details.
+#' @param c1
+#' @param c2
 #'
 #' @return
-#' @export
 #'
-#' @exampless
+#' @examples 
 compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
   if (is.null(c1) & is.null(c2)) {
     d <- data.frame("state" = NA)
@@ -112,11 +124,11 @@ compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
 #' Construct Correlation Matrix
 #'
 #' @param rho Correlation parameter
-#' @param p Dimension of desired matrix (will be \eqn(p \times p))
+#' @param p Dimension of desired matrix (will be \eqn{p * p})
 #' @param corstr Correlation structure; one of "independence", "exchangeable",
 #'   or "ar1". Partial matching used.
 #'
-#' @return A \eqn(p \times p) matrix of correlations.
+#' @return A \eqn{p * p} matrix of correlations.
 #' @importFrom checkmate assert_numeric
 #' @export
 #'

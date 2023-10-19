@@ -4,7 +4,7 @@
 \alias{var_cov_tx_pre_post}
 \title{Compute Covariance between Pre- and Post-Treatment Mean Outcomes in a Treated State}
 \usage{
-var_cov_tx_pre_post(ntx, Tpre, Tpost, rho, phi_s, sigma_tx)
+var_cov_tx_pre_post(ntx, Tpre, Tpost, rho, psi, sigma_tx)
 }
 \arguments{
 \item{ntx}{Number of individuals in the treated unit}
@@ -15,12 +15,12 @@ var_cov_tx_pre_post(ntx, Tpre, Tpost, rho, phi_s, sigma_tx)
 
 \item{rho}{Within-person correlation}
 
-\item{phi_s}{Between-period correlation}
+\item{psi}{Between-period correlation}
 
 \item{sigma_tx}{Variance of outcome in treated unit}
 }
 \value{
-A scalar
+A numeric scalar
 }
 \description{
 Compute Covariance between Pre- and Post-Treatment Mean Outcomes in a Treated State
