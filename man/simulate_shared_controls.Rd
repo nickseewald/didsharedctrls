@@ -46,14 +46,14 @@ above.}
 
 \item{rho}{Exchangeable within-person correlation. If a single number,
 assumed constant across all states; else, a vector of length 2 +
-nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-control states).}
+nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+states).}
 
 \item{phi}{Within-period correlation, i.e., correlation between two
 observations from different people in the same state at the same time. If a
 single number, assumed constant across all states; else, a vector of length
-2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-control states).}
+2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+states).}
 
 \item{psi}{Within-state correlation, i.e., correlation between two
 observations from different people in the same state at different times. If
@@ -82,4 +82,10 @@ common to all states in cohort 2. Defaults to 0.}
 }
 \description{
 Simulate Stacked DiD Cohorts with Shared Control Individuals
+}
+\details{
+Generates and analyzes a \code{data.frame} for stacked
+difference-in-differences analysis with shared control individuals. The
+\code{data.frame} contains individual-level data from two treated states and
+\code{nctrlstates} control states that are common to both treated states' analyses.
 }

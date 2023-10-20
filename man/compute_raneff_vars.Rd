@@ -2,23 +2,33 @@
 % Please edit documentation in R/auxiliary.R
 \name{compute_raneff_vars}
 \alias{compute_raneff_vars}
-\title{Compute}
+\title{Compute Variances of Random Effects for Simulating Shared Controls Data}
 \usage{
 compute_raneff_vars(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL)
 }
 \arguments{
-\item{rho}{}
+\item{rho}{Exchangeable within-person correlation. If a single number,
+assumed constant across all states; else, a vector of length 2 + the number
+of control states, given in the order (cohort 1 treated, cohort 2 treated,
+control states).}
 
-\item{phi}{}
+\item{phi}{Within-period correlation, i.e., correlation between two
+observations from different people in the same state at the same time. If a
+single number, assumed constant across all states; else, a vector of length
+2 + the number of control states, given in the order (cohort 1 treated,
+cohort 2 treated, control states).}
 
-\item{psi}{}
+\item{psi}{Within-state correlation, i.e., correlation between two
+observations from different people in the same state at different times. If
+a single number, assumed constant across all states; else, a vector of
+length 2 + the number of control states, given in the order (cohort 1
+treated, cohort 2 treated, control states).}
 
-\item{error_sd}{}
-
-\item{c1}{}
+\item{error_sd}{Standard deviation of additive error in data generative
+model. See Details.}
 
 \item{c2}{}
 }
 \description{
-Compute
+Compute Variances of Random Effects for Simulating Shared Controls Data
 }

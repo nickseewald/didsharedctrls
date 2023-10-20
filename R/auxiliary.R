@@ -1,61 +1,5 @@
 library(MASS)
 
-#' Title
-#'
-#' @param c1 
-#' @param c2 
-#' @param rho 
-#' @param phi_t 
-#' @param phi_s 
-#' @param error_sd 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
-  if (is.null(c1) & is.null(c2)) {
-    d <- data.frame("state" = NA)
-  } else {
-    d <- data.frame("state" = union(c1$cohort$state, c2$cohort$state))
-  }  
-  d <- manage_cor_input(d, rho, "rho") |> 
-    manage_cor_input(phi, "phi") |> 
-    manage_cor_input(psi, "psi") |> 
-    manage_cor_input(error_sd, "error_sd") |> 
-    transform(
-      "s2_id" = error_sd^2 * (rho - psi) / (1 - rho - phi + psi),
-      "s2_time" = error_sd^2 * (phi - psi) / (1 - rho - phi + psi),
-      "s2_state" = error_sd^2 * psi / (1 - rho - phi + psi)
-    ) |> 
-    transform(
-      "outcome_var" = s2_id + s2_time + s2_state + error_sd^2
-    )
-  
-  if (any(d[, c("s2_id", "s2_time", "s2_state")] < 0)) {
-    dvec <- as.vector(d)
-    str1 <- ifelse(any(dvec$s2_id < 0), 
-                   paste("s2_id:", 
-                         paste(dvec$state[dvec$s2_id < 0], collapse = ", "),
-                         "\n"),
-                   "")
-    str2 <- ifelse(any(dvec$s2_time < 0), 
-                   paste("s2_time:", 
-                         paste(dvec$state[dvec$s2_time < 0], collapse = ", "),
-                         "\n"),
-                   "")
-    str3 <- ifelse(any(dvec$s2_state < 0), 
-                   paste("s2_state:", 
-                         paste(dvec$state[dvec$s2_state < 0], collapse = ", "),
-                         "\n"),
-                   "")
-    stop(paste("Choices of rho, phi, and psi yield negative random",
-               "intercept variances: ", str1, str2, str3))
-  }
-  
-  d
-}
-
 #' Compute Variances of Random Effects for Simulating Shared Controls Data
 #'
 #'
@@ -75,32 +19,43 @@ build_varcor_matrix <- function(c1 = NULL, c2 = NULL, rho, phi, psi, error_sd) {
 #'   treated, cohort 2 treated, control states).
 #' @param error_sd Standard deviation of additive error in data generative
 #'   model. See Details.
-#' @param c1
-#' @param c2
+#' @param c1 Optional cohort dataset produced by [generate_cohort()] used to
+#'   extract state names in cohort 1 for export.
+#' @param c2 Optional cohort dataset produced by [generate_cohort()] used to
+#'   extract state names in cohort 2 for export.
 #'
-#' @return
+#' @return A `data.frame`. One row per state in the analysis, returning input
+#'   correlation parameters as well as variances of random effects needed to
+#'   produce the correct correlation structure for the between-estimate
+#'   correlation formula in Seewald et al.
 #'
-#' @examples 
+#' @examples compute_raneff_vars(rho = c(.5, .2, .1))
 compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
   if (is.null(c1) & is.null(c2)) {
     d <- data.frame("state" = NA)
   } else {
     d <- data.frame("state" = union(c1$cohort$state, c2$cohort$state))
-  }  
+  }
   
+  # Add rho, phi, and psi to d
   d <- manage_cor_input(d, rho, "rho") |> 
     manage_cor_input(phi, "phi") |> 
     manage_cor_input(psi, "psi") |> 
     manage_cor_input(error_sd, "error_sd") |> 
+    # Compute r, the ratio of psi to phi
     transform("r" = ifelse(psi == phi, 1, psi / phi)) |>
+    # Compute individual and state-time-level random effect variances
     transform(
       "s2_id" = error_sd^2 * (rho - psi) / ((1 - rho) - (phi - psi)),
       "s2_sttime" = error_sd^2 * phi / ((1 - rho) - (phi - psi))
     ) |> 
+    # Compute outcome variance
     transform(
       "outcome_var" = s2_id + s2_sttime + error_sd^2
     )
   
+  # Throw error if any random effect variances are invalid given choices of rho,
+  # phi, psi, error_sd.
   if (any(d[, c("s2_id", "s2_sttime")] < 0)) {
     dvec <- as.vector(d)
     str1 <- ifelse(any(dvec$s2_id < 0), 
@@ -121,19 +76,21 @@ compute_raneff_vars <- function(rho, phi, psi, error_sd, c1 = NULL, c2 = NULL) {
 }
 
 
-#' Construct Correlation Matrix
+#' Construct a Correlation Matrix
+#'
+#' Given a parameter `rho`, build a `corstr`-type correlation matrix of
+#' dimension `p`.
 #'
 #' @param rho Correlation parameter
 #' @param p Dimension of desired matrix (will be \eqn{p * p})
 #' @param corstr Correlation structure; one of "independence", "exchangeable",
 #'   or "ar1". Partial matching used.
-#'
 #' @return A \eqn{p * p} matrix of correlations.
 #' @importFrom checkmate assert_numeric
 #' @export
 #'
 #' @examples
-#' corstr(rho = 0.3, p = 3, corstr = "exchangeable") 
+#' corstr(rho = 0.3, p = 3, corstr = "exchangeable")
 cormat <-
   function(rho,
            p,
@@ -143,6 +100,7 @@ cormat <-
     checkmate::assert_numeric(rho, lower = -1, upper = 1)
     
     corstr <- match.arg(corstr)
+    
     if (corstr == "independence") {
       diag(rep(1, p))
     } else if (corstr == "exchangeable") {
@@ -195,6 +153,21 @@ coverage_check <- function(est, se, df, param_value, conf.level = .95) {
            param_value[i] < max(ci[i, ]))
 }
 
+#' Convert Vector to `data.frame` for Generating Random Effect Variances
+#'
+#' Given a vector `r` of correlations (or other data), add a variable called
+#' `rname` to a `data.frame` `d`.
+#'
+#' @param d A `data.frame` containing at least one variable called `state`
+#'   indicating different units in a stacked DiD analysis (treated and control).
+#' @param r Numeric vector to add to `d`
+#' @param rname Name of variable to add to `d`
+#'
+#' @return A `data.frame`
+#'
+#' @examples x <- manage_cor_input(d = data.frame("state" = c("MD", "MI", "PA")), r = c(0.2, 0.3, 0.4), rname = "rho")
+#' x <- manage_cor_input(d = x, r = c(0.1, 0.2, 0.3), rname = "phi")
+#' x
 manage_cor_input <- function(d, r, rname) {
   if (length(r) == 1) {
     d[[rname]] <- r
