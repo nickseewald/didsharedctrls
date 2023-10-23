@@ -27,8 +27,21 @@ treated, cohort 2 treated, control states).}
 \item{error_sd}{Standard deviation of additive error in data generative
 model. See Details.}
 
-\item{c2}{}
+\item{c1}{Optional cohort dataset produced by \code{\link[=generate_cohort]{generate_cohort()}} used to
+extract state names in cohort 1 for export.}
+
+\item{c2}{Optional cohort dataset produced by \code{\link[=generate_cohort]{generate_cohort()}} used to
+extract state names in cohort 2 for export.}
+}
+\value{
+A \code{data.frame}. One row per state in the analysis, returning input
+correlation parameters as well as variances of random effects needed to
+produce the correct correlation structure for the between-estimate
+correlation formula in Seewald et al.
 }
 \description{
 Compute Variances of Random Effects for Simulating Shared Controls Data
+}
+\examples{
+compute_raneff_vars(rho = c(.5, .2, .1))
 }

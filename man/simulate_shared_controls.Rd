@@ -25,41 +25,45 @@ simulate_shared_controls(
 )
 }
 \arguments{
-\item{Tpre}{Number of measurement occasions in the pre-treatment period}
+\item{Tpre}{Number of measurement occasions in the pre-treatment period.
+Coerced to integer.}
 
-\item{Tpost}{Number of measurement occasions in the post-treatment period}
+\item{Tpost}{Number of measurement occasions in the post-treatment period.
+Coerced to integer.}
 
 \item{Delta}{Number of measurement occasions between cohort study period
-start times}
+start times. Coerced to integer.}
 
-\item{nctrlstates}{Number of control states in each cohort}
+\item{nctrlstates}{Number of control states; one number common to both
+cohorts. Coerced to integer.}
 
 \item{nperstate_cohort1}{Number of individuals in each state in cohort 1.
-Optionally, a vector of length 2 + nctrlstates that specifies different
-numbers for each state in the order (cohort 1 treated, cohort 2 treated,
-control states). Coerced to integer.}
+Recycled to length (\code{nctrlstates} + 1) such that each element specifies
+sample size for each state in the order (cohort 1's treated state, control
+state 1, control state 2, ...)}
 
 \item{nperstate_cohort2}{Number of individuals in each state in cohort 2; see
-above.}
+\code{nperstate_cohort1} above.}
 
-\item{nshared}{Number of shared control individuals}
+\item{nshared}{Number of shared control individuals per control state that
+contribute to analysis for both cohorts, of the full state sample size
+provided in the \code{nperstate} variables. Recycled to length \code{nctrlstates} and
+assumed to be given in the order (control state 1, control state 2, ...)}
 
 \item{rho}{Exchangeable within-person correlation. If a single number,
 assumed constant across all states; else, a vector of length 2 +
-nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+\code{nctrlstates} in the order (cohort 1 treated, cohort 2 treated, control
 states).}
 
 \item{phi}{Within-period correlation, i.e., correlation between two
-observations from different people in the same state at the same time. If a
-single number, assumed constant across all states; else, a vector of length
-2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
-states).}
+observations from different people in the same state at the same time.
+Recycled to length 2 + \code{nctrlstates} in the order (cohort 1 treated, cohort
+2 treated, control states).}
 
 \item{psi}{Within-state correlation, i.e., correlation between two
-observations from different people in the same state at different times. If
-a single number, assumed constant across all states; else, a vector of
-length 2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-control states).}
+observations from different people in the same state at different times.
+Recycled to length 2 + \code{nctrlstates} in the order (cohort 1 treated, cohort
+2 treated, control states).}
 
 \item{tx_intshift_cohort1}{Numeric. Intercept shift at time of treatment
 \eqn{t^*} for the treated state in cohort 1.}
@@ -81,11 +85,19 @@ common to all states in cohort 1. Defaults to 0.}
 common to all states in cohort 2. Defaults to 0.}
 }
 \description{
-Simulate Stacked DiD Cohorts with Shared Control Individuals
+Generate, summarize, and analyze a two-cohort stacked
+difference-in-differences study.
 }
 \details{
-Generates and analyzes a \code{data.frame} for stacked
-difference-in-differences analysis with shared control individuals. The
-\code{data.frame} contains individual-level data from two treated states and
-\code{nctrlstates} control states that are common to both treated states' analyses.
+Generates, summarizes, and analyzes a \code{data.frame} for a two-cohort
+stacked difference-in-differences analysis with shared control individuals.
+The \code{data.frame} contains individual-level data from two treated states and
+\code{nctrlstates} control states that are common to both treated states'
+analyses.
+
+The generative model for the outcome observed from individual \eqn{i} at
+time \eqn{} unit/state \eqn{u} is
+\deqn{Y_{uit} = \beta_0 + \beta_{1,t} + \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},}
+where \eqn{\beta_0} corresponds to \code{state_fe_mean},
+\eqn{\beta_{1,t} = \beta_1(t)} is \verb{secular_cohortX(}\eqn{t}\verb{)},
 }

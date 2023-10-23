@@ -2,7 +2,7 @@
 % Please edit documentation in R/auxiliary.R
 \name{cormat}
 \alias{cormat}
-\title{Construct Correlation Matrix}
+\title{Construct a Correlation Matrix}
 \usage{
 cormat(rho, p, corstr = c("independence", "exchangeable", "ar1"))
 }
@@ -18,8 +18,9 @@ or "ar1". Partial matching used.}
 A \eqn{p * p} matrix of correlations.
 }
 \description{
-Construct Correlation Matrix
+Given a parameter \code{rho}, build a \code{corstr}-type correlation matrix of
+dimension \code{p}.
 }
 \examples{
-corstr(rho = 0.3, p = 3, corstr = "exchangeable") 
+corstr(rho = 0.3, p = 3, corstr = "exchangeable")
 }

@@ -3,32 +3,39 @@
 
 #' Simulate Stacked DiD Cohorts with Shared Control Individuals
 #'
-#' @param Tpre Number of measurement occasions in the pre-treatment period
-#' @param Tpost Number of measurement occasions in the post-treatment period
+#' Generate, summarize, and analyze a two-cohort stacked
+#' difference-in-differences study.
+#'
+#' @param Tpre Number of measurement occasions in the pre-treatment period.
+#'   Coerced to integer.
+#' @param Tpost Number of measurement occasions in the post-treatment period.
+#'   Coerced to integer.
 #' @param Delta Number of measurement occasions between cohort study period
-#'   start times
-#' @param nctrlstates Number of control states in each cohort
+#'   start times. Coerced to integer.
+#' @param nctrlstates Number of control states; one number common to both
+#'   cohorts. Coerced to integer.
 #' @param nperstate_cohort1 Number of individuals in each state in cohort 1.
-#'   Optionally, a vector of length 2 + nctrlstates that specifies different
-#'   numbers for each state in the order (cohort 1 treated, cohort 2 treated,
-#'   control states). Coerced to integer.
+#'   Recycled to length (`nctrlstates` + 1) such that each element specifies
+#'   sample size for each state in the order (cohort 1's treated state, control
+#'   state 1, control state 2, ...)
 #' @param nperstate_cohort2 Number of individuals in each state in cohort 2; see
-#'   above.
-#' @param nshared Number of shared control individuals
+#'   `nperstate_cohort1` above.
+#' @param nshared Number of shared control individuals per control state that
+#'   contribute to analysis for both cohorts, of the full state sample size
+#'   provided in the `nperstate` variables. Recycled to length `nctrlstates` and
+#'   assumed to be given in the order (control state 1, control state 2, ...)
 #' @param rho Exchangeable within-person correlation. If a single number,
 #'   assumed constant across all states; else, a vector of length 2 +
-#'   nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
+#'   `nctrlstates` in the order (cohort 1 treated, cohort 2 treated, control
 #'   states).
 #' @param phi Within-period correlation, i.e., correlation between two
-#'   observations from different people in the same state at the same time. If a
-#'   single number, assumed constant across all states; else, a vector of length
-#'   2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated, control
-#'   states).
+#'   observations from different people in the same state at the same time.
+#'   Recycled to length 2 + `nctrlstates` in the order (cohort 1 treated, cohort
+#'   2 treated, control states).
 #' @param psi Within-state correlation, i.e., correlation between two
-#'   observations from different people in the same state at different times. If
-#'   a single number, assumed constant across all states; else, a vector of
-#'   length 2 + nctrlstates in the order (cohort 1 treated, cohort 2 treated,
-#'   control states).
+#'   observations from different people in the same state at different times.
+#'   Recycled to length 2 + `nctrlstates` in the order (cohort 1 treated, cohort
+#'   2 treated, control states).
 #' @param tx_intshift_cohort1 Numeric. Intercept shift at time of treatment
 #'   \eqn{t^*} for the treated state in cohort 1.
 #' @param tx_intshift_cohort2 Numeric. Intercept shift at time of treatment
@@ -42,10 +49,20 @@
 #'   model. See Details.
 #' @param verbose Logical. Should additional messages be printed?
 #'
-#' @details Generates and analyzes a `data.frame` for stacked
-#'   difference-in-differences analysis with shared control individuals. The
-#'   `data.frame` contains individual-level data from two treated states and
-#'   `nctrlstates` control states that are common to both treated states' analyses. 
+#' @details Generates, summarizes, and analyzes a `data.frame` for a two-cohort
+#'   stacked difference-in-differences analysis with shared control individuals.
+#'   The `data.frame` contains individual-level data from two treated states and
+#'   `nctrlstates` control states that are common to both treated states'
+#'   analyses.
+#'   
+#'   The generative model for the outcome observed from individual \eqn{i} at
+#'    time \eqn{} unit/state \eqn{u} is 
+#'   \deqn{Y_{uit} = \beta_0 + \beta_{1,t} + \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},}
+#'   where \eqn{\beta_0} corresponds to `state_fe_mean`, 
+#'   \eqn{\beta_{1,t} = \beta_1(t)} is `secular_cohortK(`\eqn{t}`)`;
+#'   \eqn{\beta_2} is `tx_intshift_cohortK`;
+#'   \eqn{A_{ut}} is an indicator for whether unit \eqn{u} is treated at time
+#'   \eqn{t};  \eqn{b_i}, \eqn{b_u}, and 
 #'
 #' @return
 #' @export
@@ -57,8 +74,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      nperstate_cohort2 = nperstate_cohort1,
                                      nshared,
                                      rho = rep(0, 2 + nctrlstates),
-                                     phi = rep(0, 2 + nctrlstates), ## CHECK LENGTH
-                                     psi = rep(0, 2 + nctrlstates), ## CHECK LENGTH
+                                     phi = rep(0, 2 + nctrlstates),
+                                     psi = rep(0, 2 + nctrlstates),
                                      tx_intshift_cohort1,
                                      tx_intshift_cohort2 = tx_intshift_cohort1,
                                      secular_trend = function(x) 0,
@@ -66,11 +83,26 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      error_sd = rep(1, 2 + nctrlstates),
                                      verbose = FALSE,
                                      ARdecay = 1) {
+  # CHECK FOR WELL-FORMED INPUT
   checks <- checkmate::makeAssertCollection()
-  checkmate::assert_numeric(rho, add = checks)
-  checkmate::assert_numeric(phi, add = checks)
-  checkmate::assert_numeric(psi, add = checks)
+  checkmate::assert_integerish(nctrlstates, lower = 1, finite = T, add = checks)
+  checkmate::assert_integerish(nperstate_cohort1, lower = 1, finite = T, 
+                               max.len = nctrlstates + 1, add = checks)
+  checkmate::assert_integerish(nperstate_cohort2, lower = 1, finite = T, 
+                               max.len = nctrlstates + 1, add = checks)
+  checkmate::assert_integerish(nshared, lower = 1, finite = T, 
+                               max.len = nctrlstates + 1, add = checks)
+  checkmate::assert_numeric(rho, upper = 1, lower = -1, add = checks)
+  checkmate::assert_numeric(phi, upper = rho, add = checks)
+  checkmate::assert_numeric(psi, upper = phi, add = checks)
   checkmate::reportAssertions(checks)
+  
+  Tpre <- as.integer(Tpre)
+  Tpost <- as.integer(Tpost)
+  Delta <- as.integer(Delta)
+  nperstate_cohort1 <- as.integer(nperstate_cohort1)
+  nperstate_cohort2 <- as.integer(nperstate_cohort2)
+  nshared <- as.integer(nshared)
   
   rho <- expand_vec(rho, 2 + nctrlstates)
   phi <- expand_vec(phi, 2 + nctrlstates)
@@ -78,15 +110,18 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   error_sd <- expand_vec(error_sd, 2 + nctrlstates)
 
   
-  if (length(nperstate_cohort1) == 1) {
-    nperstate_cohort1 <- rep_len(nperstate_cohort1, nctrlstates + 1)
-  } else if (length(nperstate_cohort1) != nctrlstates + 1)
-    stop("nperstate_cohort1 must have length 1 or (nctrlstates + 1)")
+  if ((length(nperstate_cohort1) %% (nctrlstates + 1)) > 1)
+    warning("nperstate_cohort1 is not length 1 or (nctrlstates + 1). Recycling.")
+  nperstate_cohort1 <- rep_len(nperstate_cohort1, nctrlstates + 1)
   
-  if (length(nperstate_cohort2) == 1) {
-    nperstate_cohort2 <- rep_len(nperstate_cohort2, nctrlstates + 1)
-  } else if (length(nperstate_cohort2) != nctrlstates + 1)
-    stop("nperstate_cohort2 must have length 1 or (nctrlstates + 1)")
+  if ((length(nperstate_cohort2) %% (nctrlstates + 1)) > 1)
+    warning("nperstate_cohort2 is not length 1 or (nctrlstates + 1). Recycling.")
+  nperstate_cohort1 <- rep_len(nperstate_cohort2, nctrlstates + 1)
+  
+  if ((length(nshared) %% nctrlstates) > 1)
+    warning("nshared is not length 1 or nctrlstates. Recycling.")
+  nshared <- rep_len(nshared, nctrlstates)
+  
   
   if (length(nshared) == 1) {
     nshared <- rep(nshared, nctrlstates)
