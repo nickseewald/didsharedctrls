@@ -40,31 +40,43 @@
 #'   \eqn{t^*} for the treated state in cohort 1.
 #' @param tx_intshift_cohort2 Numeric. Intercept shift at time of treatment
 #'   \eqn{t^*} for the treated state in cohort 2.
-#' @param secular_cohort1 Function of one argument defining a secular time trend
-#'   common to all states in cohort 1. Defaults to 0.
-#' @param secular_cohort2 Function of one argument defining a secular time trend
-#'   common to all states in cohort 2. Defaults to 0.
 #' @param state_fe_mean Mean of state fixed effects. See Details.
 #' @param error_sd Standard deviation of additive error in data generative
-#'   model. See Details.
-#' @param verbose Logical. Should additional messages be printed?
+#'   model, assumed common across person-state-time. See Details.
+#' @param secular_trend Function of one argument (time) defining a secular time
+#'   trend common to all states in the analysis. Defaults to 0.
+#' @param ARdecay Autoregressive parameter for the correlation structure of the
+#'   unit-time random effects in the data-generative model. Must be between 0
+#'   and 1; 1 indicates no autoregressive decay, 0 implies unit-time random
+#'   effects are pairwise independent.
 #'
 #' @details Generates, summarizes, and analyzes a `data.frame` for a two-cohort
 #'   stacked difference-in-differences analysis with shared control individuals.
 #'   The `data.frame` contains individual-level data from two treated states and
 #'   `nctrlstates` control states that are common to both treated states'
 #'   analyses.
-#'   
-#'   The generative model for the outcome observed from individual \eqn{i} at
-#'    time \eqn{} unit/state \eqn{u} is 
-#'   \deqn{Y_{uit} = \beta_0 + \beta_{1,t} + \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},}
-#'   where \eqn{\beta_0} corresponds to `state_fe_mean`, 
-#'   \eqn{\beta_{1,t} = \beta_1(t)} is `secular_cohortK(`\eqn{t}`)`;
-#'   \eqn{\beta_2} is `tx_intshift_cohortK`;
-#'   \eqn{A_{ut}} is an indicator for whether unit \eqn{u} is treated at time
-#'   \eqn{t};  \eqn{b_i}, \eqn{b_u}, and 
 #'
-#' @return
+#'   The generative model for the outcome observed from individual \eqn{i} at
+#'   time \eqn{} unit/state \eqn{u} is \deqn{Y_{uit} = \beta_0 + \beta_{1,t} +
+#'   \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},} where
+#'   \eqn{\beta_0} corresponds to `state_fe_mean`, \eqn{\beta_{1,t} =
+#'   \beta_1(t)} is `secular_trend(`\eqn{t}`)`; \eqn{\beta_2} is
+#'   `tx_intshift_cohortK`; \eqn{A_{ut}} is an indicator for whether unit
+#'   \eqn{u} is treated at time \eqn{t};  \eqn{b_i}, \eqn{b_u}, and \eqn{b_{ut}}
+#'   are random effects for individual, unit, and unit-time, respectively; and
+#'   \eqn{\epsilon_{uit}} is residual error with standard deviation `error_sd`.
+#'   In the above, `K` is either 1 or 2 depending on the cohort for which data
+#'   is being generated. Note that state fixed effects are *not*
+#'   user-specified: they are defined as \eqn{\beta_0 + b_u}, with \eqn{b_u \sim
+#'   N(0, \sigma^2_{bu})}. Also, note that the treatment effect is *constant*
+#'   over time.
+#'   
+#'   The analytic 
+#'
+#' @importFrom checkmate makeAssertCollection assert_integerish assert_numeric
+#'   assert_function reportAssertions assert_number assert_count
+#'
+#' @return A list
 #' @export
 #'
 #' @examples
@@ -80,58 +92,87 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                                      tx_intshift_cohort2 = tx_intshift_cohort1,
                                      secular_trend = function(x) 0,
                                      state_fe_mean = 0,
-                                     error_sd = rep(1, 2 + nctrlstates),
-                                     verbose = FALSE,
+                                     error_sd = 1,
                                      ARdecay = 1) {
   # CHECK FOR WELL-FORMED INPUT
-  checks <- checkmate::makeAssertCollection()
-  checkmate::assert_integerish(nctrlstates, lower = 1, finite = T, add = checks)
-  checkmate::assert_integerish(nperstate_cohort1, lower = 1, finite = T, 
-                               max.len = nctrlstates + 1, add = checks)
-  checkmate::assert_integerish(nperstate_cohort2, lower = 1, finite = T, 
-                               max.len = nctrlstates + 1, add = checks)
-  checkmate::assert_integerish(nshared, lower = 1, finite = T, 
-                               max.len = nctrlstates + 1, add = checks)
-  checkmate::assert_numeric(rho, upper = 1, lower = -1, add = checks)
-  checkmate::assert_numeric(phi, upper = rho, add = checks)
-  checkmate::assert_numeric(psi, upper = phi, add = checks)
-  checkmate::reportAssertions(checks)
+  checks <- makeAssertCollection()
   
-  Tpre <- as.integer(Tpre)
-  Tpost <- as.integer(Tpost)
-  Delta <- as.integer(Delta)
-  nperstate_cohort1 <- as.integer(nperstate_cohort1)
-  nperstate_cohort2 <- as.integer(nperstate_cohort2)
-  nshared <- as.integer(nshared)
+  # Check design arguments: must be single integers >= 1
+  assert_count(Tpre, positive = T, add = checks)
+  assert_count(Tpost, positive = T, add = checks)
+  assert_count(Delta, positive = T, add = checks)
   
-  rho <- expand_vec(rho, 2 + nctrlstates)
-  phi <- expand_vec(phi, 2 + nctrlstates)
-  psi <- expand_vec(psi, 2 + nctrlstates)
-  error_sd <- expand_vec(error_sd, 2 + nctrlstates)
-
+  # Check sample size arguments: must be integers >= 1
+  assert_integerish(nctrlstates, lower = 1, add = checks)
+  assert_integerish(nperstate_cohort1, lower = 1, max.len = nctrlstates + 1,
+                    add = checks)
+  assert_integerish(nperstate_cohort2, lower = 1, max.len = nctrlstates + 1,
+                    add = checks)
+  assert_integerish(nshared, lower = 1, max.len = nctrlstates + 1, add = checks)
   
+  # Recycle sample size vectors if needed
   if ((length(nperstate_cohort1) %% (nctrlstates + 1)) > 1)
     warning("nperstate_cohort1 is not length 1 or (nctrlstates + 1). Recycling.")
   nperstate_cohort1 <- rep_len(nperstate_cohort1, nctrlstates + 1)
   
   if ((length(nperstate_cohort2) %% (nctrlstates + 1)) > 1)
     warning("nperstate_cohort2 is not length 1 or (nctrlstates + 1). Recycling.")
-  nperstate_cohort1 <- rep_len(nperstate_cohort2, nctrlstates + 1)
+  nperstate_cohort2 <- rep_len(nperstate_cohort2, nctrlstates + 1)
   
   if ((length(nshared) %% nctrlstates) > 1)
     warning("nshared is not length 1 or nctrlstates. Recycling.")
   nshared <- rep_len(nshared, nctrlstates)
   
+  # Make sure nshared isn't larger than number of individuals in that state
+  assert_numeric(pmin(nperstate_cohort1[-1], nperstate_cohort2[-1]) - nshared,
+                 lower = 0, add = checks)
   
-  if (length(nshared) == 1) {
-    nshared <- rep(nshared, nctrlstates)
-  } else if (length(nshared) != nctrlstates) {
-    stop("nshared must have length 1 or the same length as nctrlstates")
-  }
-  if (max(nshared) > min(c(nperstate_cohort1, nperstate_cohort2)))
-    stop ("nshared is too big relative to number of people per state")
-  if (length(unique(error_sd)) != 1)
-    stop("Different error variances across states is currently unsupported.")
+  # Check correlation arguments
+  assert_numeric(rho, upper = 1, lower = -1, max.len = nctrlstates + 2, 
+                 any.missing = F, all.missing = F, add = checks)
+  assert_numeric(phi, upper = 1, lower = -1, max.len = nctrlstates + 2, 
+                 any.missing = F, all.missing = F, add = checks)
+  assert_numeric(psi, upper = 1, lower = -1, max.len = nctrlstates + 2, 
+                 any.missing = F, all.missing = F, add = checks)
+  
+  # Recycle correlation vectors if needed
+  if ((length(rho) %% (nctrlstates + 2)) > 1)
+    warning("rho is not length 1 or (nctrlstates + 2). Recycling.")
+  rho <- rep_len(rho, nctrlstates + 2)
+  
+  if ((length(phi) %% (nctrlstates + 2)) > 1)
+    warning("phi is not length 1 or (nctrlstates + 2). Recycling.")
+  phi <- rep_len(phi, nctrlstates + 2)
+  
+  if ((length(psi) %% (nctrlstates + 2)) > 1)
+    warning("psi is not length 1 or (nctrlstates + 2). Recycling.")
+  psi <- rep_len(psi, nctrlstates + 2)
+  
+  if ((length(nshared) %% nctrlstates) > 1)
+    warning("nshared is not length 1 or nctrlstates. Recycling.")
+  nshared <- rep_len(nshared, nctrlstates)
+  
+  # Require psi <= phi <= rho
+  assert_numeric(rho - phi, lower = 0, add = checks)
+  assert_numeric(phi - psi, lower = 0, add = checks)
+  
+  # Check remaining arguments
+  assert_numeric(ARdecay, lower = 0, upper = 1, any.missing = F, add = checks)
+  assert_function(secular_trend, nargs = 1, add = checks)
+  assert_number(state_fe_mean, finite = T, add = checks)
+  assert_number(error_sd, lower = 0, add = checks)
+  error_sd <- rep_len(error_sd, length.out = nctrlstates + 2)
+  
+  # Report collected input errors
+  reportAssertions(checks)
+  
+  # Convert to integer
+  # Tpre <- as.integer(Tpre)
+  # Tpost <- as.integer(Tpost)
+  # Delta <- as.integer(Delta)
+  # nperstate_cohort1 <- as.integer(nperstate_cohort1)
+  # nperstate_cohort2 <- as.integer(nperstate_cohort2)
+  # nshared <- as.integer(nshared)
   
   # Adjust nperstate in cohort 2 to generate different IDs than in cohort 1 (IDs
   # are a hash of a person index and state name, so given a control state
@@ -236,7 +277,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                              "raneff_statetime" = CPu)
                 }))
 
-  raneff <- merge(c1$cohort[, c("id", "state")], c2$cohort[, c("id", "state")], all = T)
+  raneff <- merge(c1$cohort[, c("id", "state")], c2$cohort[, c("id", "state")],
+                  all = T)
   raneff <- raneff[!duplicated(raneff), ]
   raneff <- do.call(rbind, lapply(split.data.frame(raneff, raneff$state), \(x) {
     x$raneff_id <- rnorm(nrow(x), mean = 0,
@@ -375,8 +417,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             nctrl = nperstate_cohort1[-1],
             Tpre = Tpre, Tpost = Tpost,
             rho = with(state_varcors, rho[state != "tx02"]), 
-            phi_t = with(state_varcors, phi[state != "tx02"]),
-            phi_s = with(state_varcors, psi[state != "tx02"]),
+            phi = with(state_varcors, phi[state != "tx02"]),
+            psi = with(state_varcors, psi[state != "tx02"]),
             sigma_s = with(state_varcors, 
                            sqrt(outcome_var[state != "tx02"])))),
     "c2_analytic" = sqrt(
@@ -384,8 +426,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             nctrl = nperstate_cohort2[-1],
             Tpre = Tpre, Tpost = Tpost,
             rho = with(state_varcors, rho[state != "tx01"]), 
-            phi_t = with(state_varcors, phi[state != "tx01"]),
-            phi_s = with(state_varcors, psi[state != "tx01"]),
+            phi = with(state_varcors, phi[state != "tx01"]),
+            psi = with(state_varcors, psi[state != "tx01"]),
             sigma_s = with(state_varcors, 
                            sqrt(outcome_var[state != "tx01"]))))
   )

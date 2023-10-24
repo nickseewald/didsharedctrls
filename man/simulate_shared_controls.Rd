@@ -19,8 +19,7 @@ simulate_shared_controls(
   tx_intshift_cohort2 = tx_intshift_cohort1,
   secular_trend = function(x) 0,
   state_fe_mean = 0,
-  error_sd = rep(1, 2 + nctrlstates),
-  verbose = FALSE,
+  error_sd = 1,
   ARdecay = 1
 )
 }
@@ -71,18 +70,21 @@ Recycled to length 2 + \code{nctrlstates} in the order (cohort 1 treated, cohort
 \item{tx_intshift_cohort2}{Numeric. Intercept shift at time of treatment
 \eqn{t^*} for the treated state in cohort 2.}
 
+\item{secular_trend}{Function of one argument (time) defining a secular time
+trend common to all states in the analysis. Defaults to 0.}
+
 \item{state_fe_mean}{Mean of state fixed effects. See Details.}
 
 \item{error_sd}{Standard deviation of additive error in data generative
 model. See Details.}
 
-\item{verbose}{Logical. Should additional messages be printed?}
-
-\item{secular_cohort1}{Function of one argument defining a secular time trend
-common to all states in cohort 1. Defaults to 0.}
-
-\item{secular_cohort2}{Function of one argument defining a secular time trend
-common to all states in cohort 2. Defaults to 0.}
+\item{ARdecay}{Autoregressive parameter for the correlation structure of the
+unit-time random effects in the data-generative model. Must be between 0
+and 1; 1 indicates no autoregressive decay, 0 implies unit-time random
+effects are pairwise independent.}
+}
+\value{
+A list
 }
 \description{
 Generate, summarize, and analyze a two-cohort stacked
@@ -96,8 +98,19 @@ The \code{data.frame} contains individual-level data from two treated states and
 analyses.
 
 The generative model for the outcome observed from individual \eqn{i} at
-time \eqn{} unit/state \eqn{u} is
-\deqn{Y_{uit} = \beta_0 + \beta_{1,t} + \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},}
-where \eqn{\beta_0} corresponds to \code{state_fe_mean},
-\eqn{\beta_{1,t} = \beta_1(t)} is \verb{secular_cohortX(}\eqn{t}\verb{)},
+time \eqn{} unit/state \eqn{u} is \deqn{Y_{uit} = \beta_0 + \beta_{1,t} +
+  \beta_2 A_{u t} + b_{i} + b_{u} + b_{u t} + \epsilon_{uit},} where
+\eqn{\beta_0} corresponds to \code{state_fe_mean}, \eqn{\beta_{1,t} =
+  \beta_1(t)} is \verb{secular_trend(}\eqn{t}\verb{)}; \eqn{\beta_2} is
+\code{tx_intshift_cohortK}; \eqn{A_{ut}} is an indicator for whether unit
+\eqn{u} is treated at time \eqn{t};  \eqn{b_i}, \eqn{b_u}, and \eqn{b_{ut}}
+are random effects for individual, unit, and unit-time, respectively; and
+\eqn{\epsilon_{uit}} is residual error with standard deviation \code{error_sd}.
+In the above, \code{K} is either 1 or 2 depending on the cohort for which data
+is being generated. Note that state fixed effects are \emph{not}
+user-specified: they are defined as \eqn{\beta_0 + b_u}, with \eqn{b_u \sim
+  N(0, \sigma^2_{bu})}. Also, note that the treatment effect is \emph{constant}
+over time.
+
+The analytic
 }
