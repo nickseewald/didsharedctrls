@@ -190,17 +190,19 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                         cohort_name = "cohort1",
                         start_time = 0)
   
-  # Select IDs in each state to share across cohorts
+  # Select IDs in each state in cohort 1 to also appear in cohort 2
   shared_ids <- c(sapply(1:nctrlstates, \(i) {
-    sample(unique(
-      c1$cohort$id[c1$cohort$state == paste0("ctrl", 
-                                             formatC(i, 
-                                                     width = nchar(nctrlstates),
-                                                     flag = "0"))]),
+    sample(
+      unique(
+        c1$cohort$id[
+          c1$cohort$state == paste0("ctrl", 
+                                    formatC(i, 
+                                            width = nchar(nctrlstates),
+                                            flag = "0"))]),
       size = nshared[i], replace = F)
   }))
   
-  # Generate late cohort: build skeleton
+  # Generate late cohort: build skeleton starting at time Delta
   c2 <- generate_cohort(nperstate = nperstate_cohort2,
                         nctrlstates = nctrlstates,
                         Tobs = Tpre + Tpost,
@@ -211,20 +213,23 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   
   # Generate late cohort: sample IDs to remove from control states and replace
   # with IDs from early cohort
-  killed_ids <- c(sapply(1:nctrlstates, \(i) {
-    sample(unique(
-      c2$cohort$id[c2$cohort$state == paste0("ctrl", 
-                                             formatC(i, 
-                                                     width = nchar(nctrlstates),
-                                                     flag = "0"))]),
+  removed_ids <- c(sapply(1:nctrlstates, \(i) {
+    sample(
+      unique(
+        c2$cohort$id[
+          c2$cohort$state == paste0("ctrl", 
+                                    formatC(i, 
+                                            width = nchar(nctrlstates),
+                                            flag = "0"))
+        ]),
       size = nshared[i], replace = F)
   }))
   
-  # Generate late cohort: replace killed IDs with shared IDs
-  c2$cohort$id[c2$cohort$id %in% killed_ids] <- rep(shared_ids, each = Tpre + Tpost)
-  
-  ### TEST: make big covariance matrix and generate noise from there ###
+  # Generate late cohort: replace removed IDs with shared IDs
+  c2$cohort$id[c2$cohort$id %in% removed_ids] <- 
+    rep(shared_ids, each = Tpre + Tpost)
 
+  # Vector of state names
   states <- c("tx01", "tx02", 
               paste0(c(rep("ctrl", nctrlstates)),
                      formatC(1:nctrlstates, width = nchar(nctrlstates),
@@ -244,19 +249,22 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
 
   #### RANDOM EFFECTS TO INDUCE CORRELATION (Kasza et al. 2019)
   
-  # Start by parametrizing R matrix (correlation btwn state-time random
-  # effects): this is a T-by-T matrix (T = Tpre + Tpost) where the (t,s) element
-  # is the correlation between the random effect at time t and the random effect
-  # of time s. It's a multiplier on the within-period ICC. 
-
+  # Get random effect variances
   state_varcors <- compute_raneff_vars(rho, phi, psi, error_sd, c1, c2)
 
+  # Get vector of all times in either cohort
   fullTimes <- seq(min(c1$cohort$time), max(c2$cohort$time))
-
+  
+  # Parametrize R matrices (correlation btwn state-time random effects): this is
+  # a T-by-T matrix (T = Tpre + Tpost) where the (t,s) element is the
+  # correlation between the random effect at time t and the random effect of
+  # time s. It's a multiplier on the within-period ICC.
   R <- structure(
     lapply(state_varcors$r, \(x) {
+      # For each state, make a matrix of r = psi/phi with 1's on diagonal
       temp <- matrix(x, nrow = length(fullTimes), ncol = length(fullTimes))
       diag(temp) <- 1
+      # If autoregressive correlation specified, make an AR1(ARdecay) matrix
       if (ARdecay != 1) {
         decay <- matrix(1, nrow = length(fullTimes), ncol = length(fullTimes))
         for (i in 1:length(fullTimes)) {
@@ -264,22 +272,29 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             decay[i, j] <- decay[j, i] <- ARdecay^(abs(i - j))
           }
         }
+        # multiply the decay matrix by the temp r matrix from above to let r
+        # decay over time
         return(temp * decay)
       } else return(temp)
     }),
     names = states)
+  
+  # Generate "cluster-period" (i.e., state-time) random effects
+  CP <- do.call(
+    rbind,
+    lapply(1:length(R), \(i) {
+      CPu <- MASS::mvrnorm(n = 1, mu = rep(0, nrow(R[[i]])),
+                           Sigma = state_varcors$s2_sttime[i] * R[[i]])
+      data.frame("state" = states[i], "time" = fullTimes,
+                 "raneff_statetime" = CPu)
+    }))
 
-  CP <- do.call(rbind,
-                lapply(1:length(R), \(i) {
-                  CPu <- MASS::mvrnorm(n = 1, mu = rep(0, nrow(R[[i]])),
-                                       Sigma = state_varcors$s2_sttime[i] * R[[i]])
-                  data.frame("state" = states[i], "time" = fullTimes,
-                             "raneff_statetime" = CPu)
-                }))
-
+  # Make data.frame of random effects for state & person
   raneff <- merge(c1$cohort[, c("id", "state")], c2$cohort[, c("id", "state")],
                   all = T)
   raneff <- raneff[!duplicated(raneff), ]
+  
+  
   raneff <- do.call(rbind, lapply(split.data.frame(raneff, raneff$state), \(x) {
     x$raneff_id <- rnorm(nrow(x), mean = 0,
                       sd = sqrt(state_varcors$s2_id[state_varcors$state ==
@@ -308,14 +323,7 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
                       Ymean + raneff_statetime + raneff_id + error)
   c2$cohort$Y <- with(c2$cohort,
                       Ymean + raneff_statetime + raneff_id + error)
-
-  # c1$cohort$ftime <- factor(c1$cohort$time)
-  # c1$cohort$stime <- paste0(c1$cohort$state, c1$cohort$time)
-  #
-  # mod1 <- lme4::lmer(Y ~ ftime + treated + (1 | stime), data = c1$cohort)
-  # mod2 <- lme4::lmer(Y ~ ftime + treated + (1 | stime) + (1 | id), data = c1$cohort)
-  # mod3 <- lme4::lmer(Y ~ treated + (1 | ftime) + (1 | stime) + (1 | id), data = c1$cohort)
-
+  
   c1c2t <- time_windows(unique(c1$cohort$time), unique(c2$cohort$time),
                         c1tStar = c1$tStar, c2tStar = c2$tStar)
   periods <- do.call(rbind, c1c2t)
@@ -389,30 +397,30 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   )
   
   did_estimates <- data.frame(
-    "c1_lm" = coef(c1_lm)["treatedTRUE"],
-    "c2_lm" = coef(c2_lm)["treatedTRUE"],
-    "c1_emp" = with(component_means, (c1_tx_post - c1_tx_pre) - 
+    "c1Est_lm" = coef(c1_lm)["treatedTRUE"],
+    "c2Est_lm" = coef(c2_lm)["treatedTRUE"],
+    "c1Est_emp" = with(component_means, (c1_tx_post - c1_tx_pre) - 
                       (c1_ctrl_post - c1_ctrl_pre)),
-    "c2_emp" = with(component_means, (c2_tx_post - c2_tx_pre) - 
+    "c2Est_emp" = with(component_means, (c2_tx_post - c2_tx_pre) - 
                       (c2_ctrl_post - c2_ctrl_pre))
   )
   
   did_ses <- data.frame(
-    "c1_lm" = summary(c1_lm)$coefficients["treatedTRUE", 2],
-    "c2_lm" = summary(c2_lm)$coefficients["treatedTRUE", 2],
-    "c1_lm_idadj" = 
+    "c1SE_lm" = summary(c1_lm)$coefficients["treatedTRUE", 2],
+    "c2SE_lm" = summary(c2_lm)$coefficients["treatedTRUE", 2],
+    "c1SE_idAdj" = 
       sqrt(sandwich::vcovCL(c1_lm,
                             cluster = ~ id)["treatedTRUE", "treatedTRUE"]),
-    "c2_lm_idadj" = 
+    "c2SE_idAdj" = 
       sqrt(sandwich::vcovCL(c2_lm,
                             cluster = ~ id)["treatedTRUE", "treatedTRUE"]),
-    "c1_lm_stadj" = 
+    "c1SE_stAdj" = 
       sqrt(sandwich::vcovCL(c1_lm,
                             cluster = ~ state)["treatedTRUE", "treatedTRUE"]),
-    "c2_lm_stadj" = 
+    "c2SE_stAdj" = 
       sqrt(sandwich::vcovCL(c2_lm,
                             cluster = ~ state)["treatedTRUE", "treatedTRUE"]),
-    "c1_analytic" = sqrt(
+    "c1SE_analytic" = sqrt(
       varDD(ntx = nperstate_cohort1[1], 
             nctrl = nperstate_cohort1[-1],
             Tpre = Tpre, Tpost = Tpost,
@@ -421,7 +429,7 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             psi = with(state_varcors, psi[state != "tx02"]),
             sigma_s = with(state_varcors, 
                            sqrt(outcome_var[state != "tx02"])))),
-    "c2_analytic" = sqrt(
+    "c2SE_analytic" = sqrt(
       varDD(ntx = nperstate_cohort2[1], 
             nctrl = nperstate_cohort2[-1],
             Tpre = Tpre, Tpost = Tpost,
@@ -429,46 +437,73 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             phi = with(state_varcors, phi[state != "tx01"]),
             psi = with(state_varcors, psi[state != "tx01"]),
             sigma_s = with(state_varcors, 
-                           sqrt(outcome_var[state != "tx01"]))))
+                           sqrt(outcome_var[state != "tx01"])))),
+    "c1c2cor_analytic" = 
+      corDD(Ntx_cohort1 = nperstate_cohort1[1],
+            Ntx_cohort2 = nperstate_cohort2[1],
+            Ndisj_cohort1 = nperstate_cohort1[-1] - nshared,
+            Ndisj_cohort2 = nperstate_cohort2[-1] - nshared,
+            Nshared = nshared,
+            Tpre = Tpre, Tpost = Tpost, Delta = Delta,
+            rho = rho, phi = phi, psi = psi,
+            outcomeSD = sqrt(state_varcors$outcome_var))
   )
   
-  overall_estimates <- data.frame(
+  V_analytic <- diag(c(did_ses$c1SE_analytic, did_ses$c2SE_analytic)) %*% 
+    cormat(rho = did_ses$c1c2cor_analytic, p = 2, corstr = "exch") %*%
+    diag(c(did_ses$c1SE_analytic, did_ses$c2SE_analytic))
+  
+  ivw_estimates <- data.frame(
     "truth" = truth,
-    "naive_est" = weighted.mean(
-      x = with(did_estimates, c(c1_lm, c2_lm)),
-      w = with(did_ses, c(1/c1_lm^2, 1/c2_lm^2))),
-    "idadj_est" = weighted.mean(
-      x = with(did_estimates, c(c1_lm, c2_lm)),
-      w = with(did_ses, c(1/c1_lm_idadj^2, 1/c2_lm_idadj^2))),
-    "stadj_est" = weighted.mean(
-      x = with(did_estimates, c(c1_lm, c2_lm)),
-      w = with(did_ses, c(1/c1_lm_stadj^2, 1/c2_lm_stadj^2))),
-    "analytic_est" = weighted.mean(
-      x = with(did_estimates, c(c1_lm, c2_lm)),
-      w = with(did_ses, c(1/c1_analytic^2, 1/c2_analytic^2))),
-    "naive_se" = 1 / sqrt(with(did_ses, c1_lm^(-2) + c2_lm^(-2))),
-    "idadj_se" = 1 / sqrt(with(did_ses, c1_lm_idadj^(-2) + c2_lm_idadj^(-2))),
-    "stadj_se" = 1 / sqrt(with(did_ses, c1_lm_stadj^(-2) + c2_lm_stadj^(-2))),
-    "analytic_se" = 1 / sqrt(with(did_ses, 
+    "ivw_lmSE_est" = 
+      weighted.mean(
+        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
+        w = with(did_ses, c(1/c1SE_lm^2, 1/c2SE_lm^2))),
+    "ivw_idAdjSE_est" =
+      weighted.mean(
+        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
+        w = with(did_ses, c(1/c1SE_iAadj^2, 1/c2SE_idAdj^2))),
+    "ivw_stAdjSE_est" = 
+      weighted.mean(
+        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
+        w = with(did_ses, c(1/c1SE_stAdj^2, 1/c2SE_stAdj^2))),
+    "ivw_analyticSE_est" = 
+      weighted.mean(
+        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
+        w = with(did_ses, c(1/c1SE_analytic^2, 1/c2SE_analytic^2))),
+    "ivw_lmSE_se" = 
+      1 / sqrt(with(did_ses, c1_lm^(-2) + c2_lm^(-2))),
+    "ivw_idAdjSE_se" = 1 / sqrt(with(did_ses, c1_lm_idadj^(-2) + c2_lm_idadj^(-2))),
+    "ivw_stAdjSE_se" = 1 / sqrt(with(did_ses, c1_lm_stadj^(-2) + c2_lm_stadj^(-2))),
+    "ivw_analyticSE_se" = 1 / sqrt(with(did_ses, 
                                   c1_analytic^(-2) + c2_analytic^(-2)))
     ) |>
-    transform("naive_lb" = naive_est - qnorm(.975) * naive_se,
-              "naive_ub" = naive_est + qnorm(.975) * naive_se,
-              "idadj_lb" = idadj_est - qnorm(.975) * idadj_se,
-              "idadj_ub" = idadj_est + qnorm(.975) * idadj_se,
-              "stadj_lb" = stadj_est - qnorm(.975) * stadj_se,
-              "stadj_ub" = stadj_est + qnorm(.975) * stadj_se,
-              "analytic_lb" = analytic_est - qnorm(.975) * analytic_se,
-              "analytic_ub" = analytic_est + qnorm(.975) * analytic_se) |> 
+    transform("naive_lb"    = ivw_lmSE_est    - qnorm(.975) * ivw_lmSE_se,
+              "naive_ub"    = ivw_lmSE_est    + qnorm(.975) * ivw_lmSE_se,
+              "idadj_lb"    = ivw_idAdjSE_est - qnorm(.975) * ivw_idAdjSE_se,
+              "idadj_ub"    = ivw_idAdjSE_est + qnorm(.975) * ivw_idAdjSE_se,
+              "stadj_lb"    = ivw_stAdjSE_est - qnorm(.975) * ivw_stAdjSE_se,
+              "stadj_ub"    = ivw_stAdjSE_est + qnorm(.975) * ivw_stAdjSE_se,
+              "analytic_lb" = ivw_analyticSE_est - qnorm(.975) * ivw_analyticSE_se,
+              "analytic_ub" = ivw_analyticSE_est + qnorm(.975) * ivw_analyticSE_se)
+  |> 
     transform("naive_coverage" = truth >= naive_lb & truth <= naive_ub,
               "idadj_coverage" = truth >= idadj_lb & truth <= idadj_ub,
               "stadj_coverage" = truth >= stadj_lb & truth <= stadj_ub,
               "analytic_coverage" = truth >= analytic_lb & truth <= analytic_ub)
   
-  return(list("component_sums"  = component_sums,
+  out <- list("component_sums"  = component_sums,
               "component_sums_old" = component_sums_old,
               "component_means" = component_means,
               "did_estimates"   = did_estimates,
               "did_ses" = did_ses,
-              "overall_estimates" = overall_estimates))
+              "overall_estimates" = overall_estimates)
+  
+  class(out) <- c("sharedCtrlsSim", class(out))
+  
+  return(out)
+}
+
+print.sharedCtrlsSim <- function(x) {
+  
 }

@@ -90,17 +90,18 @@ corDD <- function(Ntx_cohort1, Ntx_cohort2, Ndisj_cohort1, Ndisj_cohort2,
   checkmate::assert_vector(Nshared,       len = nctrlstates, add = checks)
   
   # Recycle rho, phi, and psi
-  rho       <- expand_vec(rho, nctrlstates + 1)
-  phi       <- expand_vec(phi, nctrlstates + 1)
-  psi       <- expand_vec(psi, nctrlstates + 1)
+  # Order taken to be (tx state 1, tx state 2, ctrl state 1, ctrl state 2, ...)
+  rho       <- expand_vec(rho, nctrlstates + 2)
+  phi       <- expand_vec(phi, nctrlstates + 2)
+  psi       <- expand_vec(psi, nctrlstates + 2)
   outcomeSD <- expand_vec(outcomeSD, nctrlstates + 2)
   
   checkmate::reportAssertions(checks)
   
   covDD(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
-         rho[-1], phi[-1], psi[-1], outcomeSD[-(1:2)]) / 
+         rho[-(1:2)], phi[-(1:2)], psi[-(1:2)], outcomeSD[-(1:2)]) / 
     sqrt(varDD(Ntx_cohort1, nctrl = Ndisj_cohort1 + Nshared, Tpre, Tpost, 
-                rho, phi, psi, outcomeSD[-2]) *
+                rho[-2], phi[-2], psi[-2], outcomeSD[-2]) *
            varDD(Ntx_cohort2, nctrl = Ndisj_cohort2 + Nshared, Tpre, Tpost,
-                  rho, phi, psi, outcomeSD[-1]))
+                  rho[-1], phi[-1], psi[-1], outcomeSD[-1]))
 }
