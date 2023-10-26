@@ -76,7 +76,7 @@ trend common to all states in the analysis. Defaults to 0.}
 \item{state_fe_mean}{Mean of state fixed effects. See Details.}
 
 \item{error_sd}{Standard deviation of additive error in data generative
-model. See Details.}
+model, assumed common across person-state-time. See Details.}
 
 \item{ARdecay}{Autoregressive parameter for the correlation structure of the
 unit-time random effects in the data-generative model. Must be between 0
