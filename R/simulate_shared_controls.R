@@ -408,18 +408,6 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   did_ses <- data.frame(
     "c1SE_lm" = summary(c1_lm)$coefficients["treatedTRUE", 2],
     "c2SE_lm" = summary(c2_lm)$coefficients["treatedTRUE", 2],
-    "c1SE_idAdj" = 
-      sqrt(sandwich::vcovCL(c1_lm,
-                            cluster = ~ id)["treatedTRUE", "treatedTRUE"]),
-    "c2SE_idAdj" = 
-      sqrt(sandwich::vcovCL(c2_lm,
-                            cluster = ~ id)["treatedTRUE", "treatedTRUE"]),
-    "c1SE_stAdj" = 
-      sqrt(sandwich::vcovCL(c1_lm,
-                            cluster = ~ state)["treatedTRUE", "treatedTRUE"]),
-    "c2SE_stAdj" = 
-      sqrt(sandwich::vcovCL(c2_lm,
-                            cluster = ~ state)["treatedTRUE", "treatedTRUE"]),
     "c1SE_analytic" = sqrt(
       varDD(ntx = nperstate_cohort1[1], 
             nctrl = nperstate_cohort1[-1],
@@ -449,7 +437,15 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             outcomeSD = sqrt(state_varcors$outcome_var))
   )
   
-  V_analytic <- diag(c(did_ses$c1SE_analytic, did_ses$c2SE_analytic)) %*% 
+  # Build covariance matrix for estimates with analytic correlation and lm() SEs
+  V_lm <- 
+    diag(c(did_ses$c1SE_lm, did_ses$c2SE_lm)) %*% 
+    cormat(rho = did_ses$c1c2cor_analytic, p = 2, corstr = "exch") %*%
+    diag(c(did_ses$c1SE_lm, did_ses$c2SE_lm))
+  
+  # Build covariance matrix for estimates with analytic correlation and SEs
+  V_analytic <- 
+    diag(c(did_ses$c1SE_analytic, did_ses$c2SE_analytic)) %*% 
     cormat(rho = did_ses$c1c2cor_analytic, p = 2, corstr = "exch") %*%
     diag(c(did_ses$c1SE_analytic, did_ses$c2SE_analytic))
   
@@ -462,99 +458,75 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
     "ivw_lmSE_uncorSE" = 
       1 / sqrt(with(did_ses, c1SE_lm^(-2) + c2SE_lm^(-2))),
     "ivw_lmSE_corSE" =
-      with(did_ses, c(c1SE_lm^(-2), c2SE_lm^(-2)) %*% V_analytic %*%
+      with(did_ses, c(c1SE_lm^(-2), c2SE_lm^(-2)) %*% V_lm %*%
              c(c1SE_lm^(-2), c2SE_lm^(-2)))^(-1/2)
   ) |>
     transform(
       "ivw_lmSE_uncorLB" = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_uncorSE,
       "ivw_lmSE_uncorUB" = ivw_lmSE_est + qnorm(.975) * ivw_lmSE_uncorSE,
       "ivw_lmSE_corLB"   = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_corSE,
-      "ivw_lmSE_corLB"   = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_corSE,
+      "ivw_lmSE_corUB"   = ivw_lmSE_est + qnorm(.975) * ivw_lmSE_corSE
     ) |> 
     transform(
       "ivw_lmSE_uncorCovg" = truth >= ivw_lmSE_uncorLB & truth <= ivw_lmSE_uncorUB,
-      "ivw_lmSE_corCovg".  = truth >= ivw_lmSE_corLB.  & truth <= ivw_lmSE_corUB
+      "ivw_lmSE_corCovg"   = truth >= ivw_lmSE_corLB   & truth <= ivw_lmSE_corUB
     )
   
-  # Aggregate via inverse-variance weighting using cluster-adjusted SEs with
-  # clustering at the individual level
-  ivw_idAdjSE <- data.frame(
-    "ivw_idAdjSE_est" = 
-      weighted.mean(
-        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
-        w = with(did_ses, c(1/c1SE_idAdj^2, 1/c2SE_idAdj^2))),
-    "ivw_idAdjSE_uncorSE" = 
-      1 / sqrt(with(did_ses, c1SE_idAdj^(-2) + c2SE_idAdj^(-2))),
-    "ivw_idAdjSE_corSE" =
-      with(did_ses, c(c1SE_idAdj^(-2), c2SE_idAdj^(-2)) %*% V_analytic %*%
-             c(c1SE_idAdj^(-2), c2SE_idAdj^(-2)))^(-1/2)
-  ) |>
-    transform(
-      "ivw_lmSE_uncorLB" = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_uncorSE,
-      "ivw_lmSE_uncorUB" = ivw_lmSE_est + qnorm(.975) * ivw_lmSE_uncorSE,
-      "ivw_lmSE_corLB"   = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_corSE,
-      "ivw_lmSE_corLB"   = ivw_lmSE_est - qnorm(.975) * ivw_lmSE_corSE,
-    ) |> 
-    transform(
-      "ivw_lmSE_uncorCovg" = truth >= ivw_lmSE_uncorLB & truth <= ivw_lmSE_uncorUB,
-      "ivw_lmSE_corCovg"  = truth >= ivw_lmSE_corLB.  & truth <= ivw_lmSE_corUB
-    )
-  
-  ivw_estimates <- data.frame(
-    "truth" = truth,
-    "ivw_lmSE_est" = 
-      weighted.mean(
-        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
-        w = with(did_ses, c(1/c1SE_lm^2, 1/c2SE_lm^2))),
-    "ivw_lmSE_uncorSE" = 
-      1 / sqrt(with(did_ses, c1SE_lm^(-2) + c2SE_lm^(-2))),
-    "ivw_idAdjSE_est" =
-      weighted.mean(
-        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
-        w = with(did_ses, c(1/c1SE_idAdj^2, 1/c2SE_idAdj^2))),
-    "ivw_stAdjSE_est" = 
-      weighted.mean(
-        x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
-        w = with(did_ses, c(1/c1SE_stAdj^2, 1/c2SE_stAdj^2))),
+  # Aggregate via inverse-variance weighting using analytic SEs from varDD()
+  ivw_analyticSE <- data.frame(
     "ivw_analyticSE_est" = 
       weighted.mean(
         x = with(did_estimates, c(c1Est_lm, c2Est_lm)),
         w = with(did_ses, c(1/c1SE_analytic^2, 1/c2SE_analytic^2))),
-    
-    "ivw_idAdjSE_uncorSE" = 1 / sqrt(with(did_ses, c1SE_idAdj^(-2) + c2SE_idAdj^(-2))),
-    "ivw_stAdjSE_uncorSE" = 1 / sqrt(with(did_ses, c1SE_stAdj^(-2) + c2SE_stAdj^(-2))),
-    "ivw_analyticSE_uncorSE" = 1 / sqrt(with(did_ses, 
-                                  c1SE_analytic^(-2) + c2SE_analytic^(-2))),
-    "ivw_idAdj_SE"
-    ) |>
+    "ivw_analyticSE_uncorSE" = 
+      1 / sqrt(with(did_ses, c1SE_analytic^(-2) + c2SE_analytic^(-2))),
+    "ivw_analyticSE_corSE" =
+      with(did_ses, c(c1SE_analytic^(-2), c2SE_analytic^(-2)) %*% V_analytic %*%
+             c(c1SE_analytic^(-2), c2SE_analytic^(-2)))^(-1/2)
+  ) |>
     transform(
-              "ivw_idAdjSE_lb"    = ivw_idAdjSE_est - qnorm(.975) * ivw_idAdjSE_uncorSE,
-              "ivw_idAdjSE_ub"    = ivw_idAdjSE_est + qnorm(.975) * ivw_idAdjSE_uncorSE,
-              "ivw_stAdjSE_lb"    = ivw_stAdjSE_est - qnorm(.975) * ivw_stAdjSE_uncorSE,
-              "ivw_stAdjSE_ub"    = ivw_stAdjSE_est + qnorm(.975) * ivw_stAdjSE_uncorSE,
-              "ivw_analyticSE_lb" = ivw_analyticSE_est - qnorm(.975) * ivw_analyticSE_uncorSE,
-              "ivw_analyticSE_ub" = ivw_analyticSE_est + qnorm(.975) * ivw_analyticSE_uncorSE
+      "ivw_analyticSE_uncorLB" = ivw_analyticSE_est - qnorm(.975) * ivw_analyticSE_uncorSE,
+      "ivw_analyticSE_uncorUB" = ivw_analyticSE_est + qnorm(.975) * ivw_analyticSE_uncorSE,
+      "ivw_analyticSE_corLB"   = ivw_analyticSE_est - qnorm(.975) * ivw_analyticSE_corSE,
+      "ivw_analyticSE_corUB"   = ivw_analyticSE_est + qnorm(.975) * ivw_analyticSE_corSE
     ) |> 
-    transform("ivw_lmSE_covg"       = truth >= ivw_lmSE_lb & truth <= ivw_lmSE_ub,
-              "ivw_idAdjSE_covg"    = truth >= ivw_idAdjSE_lb & truth <= ivw_idAdjSE_ub,
-              "ivw_stAdtSE_covg"    = truth >= ivw_stAdjSE_lb & truth <= ivw_stAdjSE_ub,
-              "ivw_analyticSE_covg" = truth >= ivw_analyticSE_lb & truth <= ivw_analyticSE_ub)
+    transform(
+      "ivw_analyticSE_uncorCovg" = truth >= ivw_analyticSE_uncorLB & truth <= ivw_analyticSE_uncorUB,
+      "ivw_analyticSE_corCovg"   = truth >= ivw_analyticSE_corLB   & truth <= ivw_analyticSE_corUB
+    )
   
-  gls_estimates <- data.frame(
-    "gls_est" =
+  gls_lmSE <- data.frame(
+    "gls_lmSE_est" =
+      weighted.mean(
+        x = with(did_estimates, c(c1Est_lm, c2Est_lm)), 
+        w = c(V_lm[2, 2] - V_lm[2, 1],
+              V_lm[1, 1] - V_lm[1, 2])
+      ),
+    "gls_lmSE_SE" = sum(solve(V_lm))^(-1/2)
+  ) |> 
+    transform(
+      "gls_lmSE_lb" = gls_lmSE_est - qnorm(.975) * gls_lmSE_SE,
+      "gls_lmSE_ub" = gls_lmSE_est + qnorm(.975) * gls_lmSE_SE
+    ) |> 
+    transform(
+      "gls_lmSE_covg" = truth >= gls_lmSE_lb & truth <= gls_lmSE_ub
+    )
+  
+  gls_analyticSE <- data.frame(
+    "gls_analyticSE_est" =
       weighted.mean(
         x = with(did_estimates, c(c1Est_lm, c2Est_lm)), 
         w = c(V_analytic[2, 2] - V_analytic[2, 1],
               V_analytic[1, 1] - V_analytic[1, 2])
       ),
-    "gls_SE" = sum(solve(V_analytic))^(-1/2)
+    "gls_analyticSE_SE" = sum(solve(V_analytic))^(-1/2)
   ) |> 
     transform(
-      "gls_lb" = gls_est - qnorm(.975) * gls_SE,
-      "gls_ub" = gls_est + qnorm(.975) * gls_SE
+      "gls_analyticSE_lb" = gls_analyticSE_est - qnorm(.975) * gls_analyticSE_SE,
+      "gls_analyticSE_ub" = gls_analyticSE_est + qnorm(.975) * gls_analyticSE_SE
     ) |> 
     transform(
-      "gls_covg" = truth >= gls_lb & truth <= gls_ub
+      "gls_analyticSE_covg" = truth >= gls_analyticSE_lb & truth <= gls_analyticSE_ub
     )
   
   out <- list("component_sums"  = component_sums,
@@ -562,10 +534,10 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
               "component_means" = component_means,
               "did_estimates"   = did_estimates,
               "did_ses" = did_ses,
-              "ivw_estimates" = ivw_estimates,
-              "gls_estimates" = gls_estimates)
+              "ivw_estimates" = cbind(ivw_lmSE, ivw_analyticSE),
+              "gls_estimates" = cbind(gls_lmSE, gls_analyticSE))
   
-  class(out) <- c("sharedCtrlsSim", class(out))
+  # class(out) <- c("sharedCtrlsSim", class(out))
   
   return(out)
 }
