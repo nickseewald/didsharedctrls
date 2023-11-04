@@ -32,12 +32,12 @@
 #'   analysis. First element is assumed to be for the treated state.
 #' @param psi Vector of within-state correlations for each state in the
 #'   analysis. First element is assumed to be for the treated state.
-#' @param sigma_s Vector of standard deviations of the outcome for each state in
+#' @param outcomeSD Vector of standard deviations of the outcome for each state in
 #'   the analysis. First element is assumed to be for the treated state in
 #'   cohort 1; second element the treated state in cohort 2.
 #'
 #' @return A scalar
-varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi, psi, sigma_s) {
+varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi, psi, outcomeSD) {
   
   checkmate::assert_vector(nctrl)
 
@@ -46,14 +46,14 @@ varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi, psi, sigma_s) {
   rho     <- expand_vec(rho, nctrlstates + 1)
   phi     <- expand_vec(phi, nctrlstates + 1)
   psi     <- expand_vec(psi, nctrlstates + 1)
-  sigma_s <- expand_vec(sigma_s, nctrlstates + 1)
+  outcomeSD <- expand_vec(outcomeSD, nctrlstates + 1)
   
-  var_tx_period(ntx, Tpre, rho[1], phi[1], psi[1], sigma_s[1]) +
-    var_tx_period(ntx, Tpost, rho[1], phi[1], psi[1], sigma_s[1]) +
-    var_ctrl_period(nctrl, Tpre, rho[-1], phi[-1], psi[-1], sigma_s[-1]) +
-    var_ctrl_period(nctrl, Tpost, rho[-1], phi[-1], psi[-1], sigma_s[-1]) -
-    2 * var_cov_tx_pre_post(ntx, Tpre, Tpost, rho[1], psi[1], sigma_s[1]) - 
-    2 * var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho[-1], psi[-1], sigma_s[-1])
+  var_tx_period(ntx, Tpre, rho[1], phi[1], psi[1], outcomeSD[1]) +
+    var_tx_period(ntx, Tpost, rho[1], phi[1], psi[1], outcomeSD[1]) +
+    var_ctrl_period(nctrl, Tpre, rho[-1], phi[-1], psi[-1], outcomeSD[-1]) +
+    var_ctrl_period(nctrl, Tpost, rho[-1], phi[-1], psi[-1], outcomeSD[-1]) -
+    2 * var_cov_tx_pre_post(ntx, Tpre, Tpost, rho[1], psi[1], outcomeSD[1]) - 
+    2 * var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho[-1], psi[-1], outcomeSD[-1])
 }
 
 
@@ -84,7 +84,7 @@ varDD <- function(ntx, nctrl, Tpre, Tpost, rho, phi, psi, sigma_s) {
 #'   estimates.
 #' 
 covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
-                   rho, phi, psi, sigma_s) {
+                   rho, phi, psi, outcomeSD) {
   
   # Function is not exported, so will assume all input is well-formed
   
@@ -98,7 +98,7 @@ covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
        Tpre * Tpost * min(c(Tpre, Tpost, Delta, max(Tpre + Tpost - Delta, 0))))
   
   s <- ((Ncohort1 * (phi - psi)) * Ncohort2 + 
-          Nshared * (1 - rho - (phi - psi))) * sigma_s^2
+          Nshared * (1 - rho - (phi - psi))) * outcomeSD^2
   
   # s <- (Ncohort1 * Ncohort2 * (phi - psi) + 
   #         Nshared * (1 - rho - (phi - psi))) * sigma_s^2
@@ -114,14 +114,14 @@ covDD <- function(Ndisj_cohort1, Ndisj_cohort2, Nshared, Tpre, Tpost, Delta,
 #' @param rho Within-person correlation
 #' @param phi Within-period correlation
 #' @param psi Between-period correlation
-#' @param sigma_tx Variance of outcome in treated unit
+#' @param outcomeSD Variance of outcome in treated unit
 #'
 #' @return A scalar
-var_tx_period <- function(ntx, nTimes, rho, phi, psi, sigma_tx) {
+var_tx_period <- function(ntx, nTimes, rho, phi, psi, outcomeSD) {
   (ntx * nTimes)^(-2) * (
     ntx * nTimes * (1 + (nTimes - 1) * rho) +
       ntx * (ntx - 1) * nTimes * (phi + (nTimes - 1) * psi)
-  ) * sigma_tx^2
+  ) * outcomeSD^2
 }
 
 #' Compute Variance of Mean Outcome Averaged over Control States in either Pre-
@@ -132,23 +132,23 @@ var_tx_period <- function(ntx, nTimes, rho, phi, psi, sigma_tx) {
 #' @param rho Vector of within-person correlations for each control state
 #' @param phi Vector of within-period correlations for each control state
 #' @param psi Vector of between-period correlations for each control state
-#' @param sigma_s Vector of outcome variances in each control state
+#' @param outcomeSD Vector of outcome variances in each control state
 #' 
 #' @return A scalar, the variance of the mean outcome in control states over 
 #' either the pre- or post-treatment period
-var_ctrl_period <- function(nctrl, nTimes, rho, phi, psi, sigma_s) {
+var_ctrl_period <- function(nctrl, nTimes, rho, phi, psi, outcomeSD) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_vector(nctrl, add = checks)
   checkmate::assert_vector(rho,     len = length(nctrl), add = checks)
   checkmate::assert_vector(phi,     len = length(nctrl), add = checks)
   checkmate::assert_vector(psi,     len = length(nctrl), add = checks)
-  checkmate::assert_vector(sigma_s, len = length(nctrl), add = checks)
+  checkmate::assert_vector(outcomeSD, len = length(nctrl), add = checks)
   checkmate::reportAssertions(checks)
   
   sum(sapply(1:length(nctrl), \(i) {
     (nctrl[i] * (nTimes + nTimes * (nTimes - 1) * rho[i]) + 
        nctrl[i] * (nctrl[i] - 1) * 
-       (nTimes * phi[i] + nTimes * (nTimes - 1) * psi[i])) * sigma_s[i]^2
+       (nTimes * phi[i] + nTimes * (nTimes - 1) * psi[i])) * outcomeSD[i]^2
   })) / (sum(nctrl)^2 * nTimes^2)
 }
 
@@ -159,12 +159,12 @@ var_ctrl_period <- function(nctrl, nTimes, rho, phi, psi, sigma_s) {
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param rho Within-person correlation
 #' @param psi Between-period correlation
-#' @param sigma_tx Variance of outcome in treated unit
+#' @param outcomeSD Variance of outcome in treated unit
 #'
 #' @return A numeric scalar
-var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, psi, sigma_tx) {
+var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, psi, outcomeSD) {
   (ntx * Tpre * Tpost * rho + ntx * (ntx - 1) * Tpre * Tpost * psi) *
-    sigma_tx^2 / (ntx^2 * Tpre * Tpost)
+    outcomeSD^2 / (ntx^2 * Tpre * Tpost)
 }
 
 #' Compute Covariance between Pre- and Post-Treatment Mean Outcomes Averaged
@@ -175,19 +175,19 @@ var_cov_tx_pre_post <- function(ntx, Tpre, Tpost, rho, psi, sigma_tx) {
 #' @param Tpost Number of measurement occasions in the post-treatment period
 #' @param rho Vector of within-person correlations for each control state
 #' @param psi Vector of between-period correlations for each control state
-#' @param sigma_s Vector of outcome variances in each control state
+#' @param outcomeSD Vector of outcome variances in each control state
 #'
 #' @return A numeric scalar
-var_cov_ctrl_pre_post <- function(nctrl, Tpre, Tpost, rho, psi, sigma_s) {
+var_cov_ctrl_pre_post <- function(nctrl, Tpre, Tpost, rho, psi, outcomeSD) {
   checks <- checkmate::makeAssertCollection()
   checkmate::assert_vector(nctrl, add = checks)
   checkmate::assert_vector(rho,     len = length(nctrl), add = checks)
   checkmate::assert_vector(psi,     len = length(nctrl), add = checks)
-  checkmate::assert_vector(sigma_s, len = length(nctrl), add = checks)
+  checkmate::assert_vector(outcomeSD, len = length(nctrl), add = checks)
   checkmate::reportAssertions(checks)
   
   sum(sapply(1:length(nctrl), \(i) {
     (nctrl[i] * Tpre * Tpost * rho[i] + 
-       nctrl[i] * (nctrl[i] - 1) * Tpre * Tpost * psi[i]) * sigma_s[i]^2
+       nctrl[i] * (nctrl[i] - 1) * Tpre * Tpost * psi[i]) * outcomeSD[i]^2
   })) / (sum(nctrl)^2 * Tpre * Tpost)
 }

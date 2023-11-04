@@ -15,7 +15,7 @@ covDD(
   rho,
   phi,
   psi,
-  sigma_s
+  outcomeSD
 )
 }
 \arguments{

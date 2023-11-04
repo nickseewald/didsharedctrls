@@ -114,3 +114,16 @@ over time.
 
 The analytic
 }
+\examples{
+simulate_shared_controls(
+    Tpre = 3,
+    Tpost = 2, 
+    Delta = 1,
+    nctrlstates = 4,
+    nperstate_cohort1 = 100,
+    nperstate_cohort2 = 150,
+    nshared = 50,
+    tx_intshift_cohort1 = 1,
+    tx_intshift_cohort2 = 1.5
+)
+}

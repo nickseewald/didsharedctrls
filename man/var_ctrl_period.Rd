@@ -5,7 +5,7 @@
 \title{Compute Variance of Mean Outcome Averaged over Control States in either Pre-
 or Post-Treatment Period}
 \usage{
-var_ctrl_period(nctrl, nTimes, rho, phi, psi, sigma_s)
+var_ctrl_period(nctrl, nTimes, rho, phi, psi, outcomeSD)
 }
 \arguments{
 \item{nctrl}{Vector of numbers of individuals in each control state}
@@ -18,7 +18,7 @@ var_ctrl_period(nctrl, nTimes, rho, phi, psi, sigma_s)
 
 \item{psi}{Vector of between-period correlations for each control state}
 
-\item{sigma_s}{Vector of outcome variances in each control state}
+\item{outcomeSD}{Vector of outcome variances in each control state}
 }
 \value{
 A scalar, the variance of the mean outcome in control states over

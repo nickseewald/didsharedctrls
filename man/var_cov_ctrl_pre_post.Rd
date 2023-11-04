@@ -5,7 +5,7 @@
 \title{Compute Covariance between Pre- and Post-Treatment Mean Outcomes Averaged
 over All Control States}
 \usage{
-var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho, psi, sigma_s)
+var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho, psi, outcomeSD)
 }
 \arguments{
 \item{nctrl}{Vector of numbers of individuals in each control state}
@@ -18,7 +18,7 @@ var_cov_ctrl_pre_post(nctrl, Tpre, Tpost, rho, psi, sigma_s)
 
 \item{psi}{Vector of between-period correlations for each control state}
 
-\item{sigma_s}{Vector of outcome variances in each control state}
+\item{outcomeSD}{Vector of outcome variances in each control state}
 }
 \value{
 A numeric scalar

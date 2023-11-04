@@ -5,7 +5,7 @@
 \title{Variance of Single-Treated-State Difference-in-Differences Estimator for the
 Average ATT across Pre- and Post-Treatment Measurement Occasions}
 \usage{
-varDD(ntx, nctrl, Tpre, Tpost, rho, phi, psi, sigma_s)
+varDD(ntx, nctrl, Tpre, Tpost, rho, phi, psi, outcomeSD)
 }
 \arguments{
 \item{ntx}{Number of individuals in the single treated state}
@@ -25,7 +25,7 @@ analysis. First element is assumed to be for the treated state.}
 \item{psi}{Vector of within-state correlations for each state in the
 analysis. First element is assumed to be for the treated state.}
 
-\item{sigma_s}{Vector of standard deviations of the outcome for each state in
+\item{outcomeSD}{Vector of standard deviations of the outcome for each state in
 the analysis. First element is assumed to be for the treated state in
 cohort 1; second element the treated state in cohort 2.}
 }

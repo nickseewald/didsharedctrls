@@ -80,6 +80,18 @@
 #' @export
 #'
 #' @examples
+#' simulate_shared_controls(
+#'     Tpre = 3,
+#'     Tpost = 2, 
+#'     Delta = 1,
+#'     nctrlstates = 4,
+#'     nperstate_cohort1 = 100,
+#'     nperstate_cohort2 = 150,
+#'     nshared = 50,
+#'     tx_intshift_cohort1 = 1,
+#'     tx_intshift_cohort2 = 1.5
+#' )
+
 simulate_shared_controls <- function(Tpre, Tpost, Delta, 
                                      nctrlstates, 
                                      nperstate_cohort1,
@@ -364,27 +376,6 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
   
   component_sums <- sapply(c(c1_expand, c2_expand), \(x) sum(x$Y, na.rm = T))
   
-  component_sums_old <- data.frame(
-    "c1_tx_pre"    = with(c1$cohort, sum(Y[state == "tx01" & !post])),
-    "c1_tx_post"   = with(c1$cohort, sum(Y[state == "tx01" & post])),
-    "c1_disj_pre"  = with(c1disj,    sum(Y[!post])),
-    "c1_disj_post" = with(c1disj,    sum(Y[post])),
-    "c1_pre_dot"   = with(c1shared,  sum(Y[time %in% c1c2t$pre_dot])),
-    "c1_pre_pre"   = with(c1shared,  sum(Y[time %in% c1c2t$pre_pre])),
-    "c1_post_pre"  = with(c1shared,  sum(Y[time %in% c1c2t$post_pre])),
-    "c1_post_post" = with(c1shared,  sum(Y[time %in% c1c2t$post_post])),
-    "c1_post_dot"  = with(c1shared,  sum(Y[time %in% c1c2t$post_dot])),
-    "c2_tx_pre"    = with(c2$cohort, sum(Y[state == "tx02" & !post])),
-    "c2_tx_post"   = with(c2$cohort, sum(Y[state == "tx02" & post])),
-    "c2_disj_pre"  = with(c2disj,    sum(Y[!post])),
-    "c2_disj_post" = with(c2disj,    sum(Y[post])),
-    "c2_pre_pre"   = with(c2shared,  sum(Y[time %in% c1c2t$pre_pre])),
-    "c2_post_pre"  = with(c2shared,  sum(Y[time %in% c1c2t$post_pre])),
-    "c2_post_post" = with(c2shared,  sum(Y[time %in% c1c2t$post_post])),
-    "c2_dot_pre"   = with(c2shared,  sum(Y[time %in% c1c2t$dot_pre])),
-    "c2_dot_post"  = with(c2shared,  sum(Y[time %in% c1c2t$dot_post]))
-  )
-  
   component_means <- data.frame(
     "c1_tx_pre"    = with(c1$cohort, mean(Y[state == "tx01" & !post])),
     "c1_tx_post"   = with(c1$cohort, mean(Y[state == "tx01" & post])),
@@ -415,7 +406,7 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             rho = with(state_varcors, rho[state != "tx02"]), 
             phi = with(state_varcors, phi[state != "tx02"]),
             psi = with(state_varcors, psi[state != "tx02"]),
-            sigma_s = with(state_varcors, 
+            outcomeSD = with(state_varcors, 
                            sqrt(outcome_var[state != "tx02"])))),
     "c2SE_analytic" = sqrt(
       varDD(ntx = nperstate_cohort2[1], 
@@ -424,8 +415,8 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
             rho = with(state_varcors, rho[state != "tx01"]), 
             phi = with(state_varcors, phi[state != "tx01"]),
             psi = with(state_varcors, psi[state != "tx01"]),
-            sigma_s = with(state_varcors, 
-                           sqrt(outcome_var[state != "tx01"])))),
+            outcomeSD = with(state_varcors, 
+                             sqrt(outcome_var[state != "tx01"])))),
     "c1c2cor_analytic" = 
       corDD(Ntx_cohort1 = nperstate_cohort1[1],
             Ntx_cohort2 = nperstate_cohort2[1],
@@ -530,7 +521,6 @@ simulate_shared_controls <- function(Tpre, Tpost, Delta,
     )
   
   out <- list("component_sums"  = component_sums,
-              "component_sums_old" = component_sums_old,
               "component_means" = component_means,
               "did_estimates"   = did_estimates,
               "did_ses" = did_ses,
