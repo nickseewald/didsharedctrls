@@ -1,6 +1,22 @@
 ### simulate_shared_controls.R
 ### Copyright 2022 Nicholas J. Seewald, PhD
 
+# This file is part of didsharedctrls
+#
+# didsharedctrls is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# didsharedctrls is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with didstackcor If not, see <https://www.gnu.org/licenses/>.
+
+
 #' Simulate Stacked DiD Cohorts with Shared Control Individuals
 #'
 #' Generate, summarize, and analyze a two-cohort stacked

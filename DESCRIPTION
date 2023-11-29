@@ -1,5 +1,5 @@
-Package: didstackcor
-Version: 1.0
+Package: didsharedctrls
+Version: 0.1
 Date: 2023-10-19
 Title: Shared Control Individuals in Stacked Difference-in-Differences
 Authors@R: c(person("Nicholas J. Seewald", "Developer", role = c("aut", "cre"),
