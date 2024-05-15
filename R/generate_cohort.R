@@ -24,7 +24,8 @@
 #' @param nperstate number of individuals per state; can be a single integer or 
 #' a vector of length `ntxstates` + `nctrlstates`. If a single integer, it is 
 #' assumed that each state has `nperstate` individuals.
-#' @param nctrlstates number of control states
+#' @param ntxunits number of simultaneously-treated units in the cohort
+#' @param nctrlunits number of control units
 #' @param Tobs number of observation periods, assumed to be in months
 #' @param Tpost Number of observations in the study period for which the
 #' treated state is treated. Must be less than `monthly_obs`.
@@ -33,58 +34,59 @@
 #' @export
 #'
 #' @examples
-generate_cohort <- function(nperstate, nctrlstates,
+generate_cohort <- function(nperunit, ntxunits, nctrlunits,
                             Tobs, Tpost,
-                            txstatename = "tx1",
-                            cohort_name = txstatename,
+                            txunitname = "tx",
+                            cohort_name = txunitname,
                             start_time = 0) {
   
   checks <- checkmate::makeAssertCollection()
-  checkmate::assert_integerish(nctrlstates, lower = 1, add = checks)
-  checkmate::assert_integerish(nperstate, lower = 1, 
-                               max.len = nctrlstates + 1, add = checks)
+  checkmate::assert_integerish(nctrlunits, lower = 1, add = checks)
+  checkmate::assert_integerish(nperunit, lower = 1, 
+                               max.len = nctrlunits + ntxunits, add = checks)
   checkmate::assert_integerish(Tobs, lower = 2, add = checks)
   checkmate::assert_integerish(Tpost, upper = Tobs - 1, add = checks)
-  checkmate::assert_character(txstatename, add = checks)
+  checkmate::assert_character(txunitname, add = checks)
   checkmate::reportAssertions(checks)
   
-  cohortStates <- c(txstatename, 
-                    paste0(c(rep("ctrl", nctrlstates)),
-                           formatC(1:nctrlstates, width = nchar(nctrlstates),
+  policyLevelUnits <- c(paste0(c(rep(txunitname, ntxunits)),
+                           formatC(1:ntxunits, width = nchar(ntxunits),
+                                   flag = "0")), 
+                    paste0(c(rep("ctrl", nctrlunits)),
+                           formatC(1:nctrlunits, width = nchar(nctrlunits),
                                    flag = "0")))
   
-  if (length(nperstate) == 1) {
-    nperstate <- rep(nperstate, 1 + nctrlstates)
+  if (length(nperunit) == 1) {
+    nperunit <- rep(nperunit, ntxunits + nctrlunits)
   }
   
-  names(nperstate) <- cohortStates
-  
+  names(nperunit) <- policyLevelUnits
   
   crc <- digest::getVDigest(algo = "crc32")
   
   cohort <-
     do.call(rbind,
             lapply(
-              cohortStates,
+              policyLevelUnits,
               \(st) {
                 expand.grid(
                   "time" = start_time:(Tobs - 1 + start_time),
                   "personIndex" =
-                    1:nperstate[which(cohortStates == st)],
+                    1:nperunit[which(policyLevelUnits == st)],
                   "state" = st
                 ) |> 
                   transform(
                     treated = as.logical(
-                      grepl("tx", st) * (time >= Tobs + start_time - Tpost)),
-                    txgroup = grepl("tx", st) * Tpost + 
-                      (1 - grepl("tx", st)) * 999
+                      grepl(txunitname, st) * (time >= Tobs + start_time - Tpost)),
+                    txgroup = grepl(txunitname, st) * Tpost + 
+                      (1 - grepl(txunitname, st)) * 999
                   )
               })) |>
     transform(cohort = cohort_name,
               month = time %% 12,
               year = time %/% 12,
-              txgroup = ifelse(grepl("tx", state), 
-                               Tpost[match(state, cohortStates)], 999),
+              txgroup = ifelse(grepl(txunitname, state), 
+                               Tpost[match(state, policyLevelUnits)], 999),
               txtime = pmax(time - txgroup + 1, 0),
               id = crc(paste0(cohort_name, state, personIndex)),
               post = time >= start_time + (Tobs - Tpost)
@@ -99,8 +101,8 @@ generate_cohort <- function(nperstate, nctrlstates,
   
   return(list("cohort" = cohort,
               "cohort_name" = cohort_name,
-              "nperstate" = nperstate,
-              "nctrlstates" = nctrlstates,
+              "nperstate" = nperunit,
+              "nctrlstates" = nctrlunits,
               "Tobs" = Tobs,
               "Tpost" = Tpost,
               "start_time" = start_time,
