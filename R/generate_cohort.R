@@ -41,6 +41,7 @@ generate_cohort <- function(nperunit, ntxunits, nctrlunits,
                             start_time = 0) {
   
   checks <- checkmate::makeAssertCollection()
+  checkmate::assert_integerish(ntxunits, lower = 1, add = checks)
   checkmate::assert_integerish(nctrlunits, lower = 1, add = checks)
   checkmate::assert_integerish(nperunit, lower = 1, 
                                max.len = nctrlunits + ntxunits, add = checks)
@@ -85,8 +86,8 @@ generate_cohort <- function(nperunit, ntxunits, nctrlunits,
     transform(cohort = cohort_name,
               month = time %% 12,
               year = time %/% 12,
-              txgroup = ifelse(grepl(txunitname, state), 
-                               Tpost[match(state, policyLevelUnits)], 999),
+              # txgroup = ifelse(grepl(txunitname, state), 
+              #                  Tpost[match(state, policyLevelUnits)], 999),
               txtime = pmax(time - txgroup + 1, 0),
               id = crc(paste0(cohort_name, state, personIndex)),
               post = time >= start_time + (Tobs - Tpost)
