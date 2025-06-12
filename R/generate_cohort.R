@@ -79,8 +79,8 @@ generate_cohort <- function(nperunit, ntxunits, nctrlunits,
                   transform(
                     treated = as.logical(
                       grepl(txunitname, st) * (time >= Tobs + start_time - Tpost)),
-                    txgroup = grepl(txunitname, st) * Tpost + 
-                      (1 - grepl(txunitname, st)) * 999
+                    txgroup = grepl(txunitname, st) * (Tobs + start_time - Tpost) + 
+                      (1 - grepl(txunitname, st)) * 0
                   )
               })) |>
     transform(cohort = cohort_name,
